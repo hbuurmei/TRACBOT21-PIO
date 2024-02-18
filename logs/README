@@ -1,0 +1,4 @@
+
+This directory contains log files that can subsequently be used for further analysis.
+
+Check the settings in the platformio.init file for additional settings.

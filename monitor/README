@@ -1,0 +1,11 @@
+
+This directory contains extra functionality for serial plotting, which is not supported by PlatformIO out of the box.
+We use the Arduplot library to do this (see https://github.com/yhur/arduplot), which you can install via pip install arduplot.
+First source environment: source ~/.platformio/penv/bin/activate.
+
+Note that the plotserialdata_copy.py script should be copied over to your local installation of Arduplot, e.g. in ```/Users/name/.platformio/penv/lib/python3.11/site-packages/arduplot``` to replace plotserialdata.py.
+It is kept here to keep track of potentially expanded functionalities.
+
+Run serial plotter via: pio device monitor -f plotter -b 9600 -w 100, where -b indicates the baudrate and -w the window size.
+
+In general, you can source PlatformIO's Python virtual environment (penv) to do cool stuff.

@@ -1,0 +1,10 @@
+{
+    "label": [
+        "potentio_meter_out",
+        "motor_on",
+        "motor_off"
+    ],
+    "title": "Potentiometer",
+    "width": 100,
+    "ymin": 0
+}
