@@ -29,9 +29,19 @@ void setup() {
 }
 
 void loop() {
+  static char input;
   // put your main code here, to run repeatedly:
   
-  Serial.print("Hello");
-  if (Serial.available()) {UNITY_END();}
+  // Serial.print("Hello");
+  if (Serial.available()) {
+    input = Serial.read();
+    Serial.println(input);
+    while (Serial.available()) {Serial.read();}
+    UNITY_END();
+    // switch (input) {
+    //   case 'c':
+
+    // }
+  }
   
 }
