@@ -9,3 +9,6 @@ in the development cycle.
 
 More information about PlatformIO Unit Testing:
 - https://docs.platformio.org/en/latest/advanced/unit-testing/index.html
+
+To run tests, use the following command (example):
+pio run -t upload -e test_reflective_sensor

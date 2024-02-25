@@ -6,10 +6,8 @@
 #define EnB     6
 
 #include <Arduino.h>
-#include <unity.h>
 
 void setup() {
-  UNITY_BEGIN(); // IMPORTANT LINE!
   // put your setup code here, to run once:
   Serial.begin(9600);
   pinMode(IN1,OUTPUT);
@@ -37,11 +35,6 @@ void loop() {
     input = Serial.read();
     Serial.println(input);
     while (Serial.available()) {Serial.read();}
-    UNITY_END();
-    // switch (input) {
-    //   case 'c':
-
-    // }
   }
   
 }

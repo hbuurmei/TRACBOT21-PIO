@@ -1,7 +1,6 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include "SparkFun_BMI270_Arduino_Library.h"
-#include <unity.h>
 
 // Create a new sensor object
 BMI270 imu;
@@ -12,7 +11,6 @@ uint8_t i2cAddress = BMI2_I2C_PRIM_ADDR; // 0x68
 
 void setup()
 {
-    UNITY_BEGIN();
     // Start serial
     Serial.begin(9600);
     Serial.println("BMI270 Example 1 - Basic Readings I2C");
@@ -68,5 +66,4 @@ void loop()
 
     // Print 50x per second
     delay(20);
-    if (millis() > 20000) {UNITY_END();}
 }
