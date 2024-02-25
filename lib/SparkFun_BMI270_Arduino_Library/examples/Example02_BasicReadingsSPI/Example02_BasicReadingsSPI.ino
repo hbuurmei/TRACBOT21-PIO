@@ -1,29 +1,28 @@
-#include <Arduino.h>
-#include <Wire.h>
+#include <SPI.h>
 #include "SparkFun_BMI270_Arduino_Library.h"
 
 // Create a new sensor object
 BMI270 imu;
 
-// I2C address selection
-uint8_t i2cAddress = BMI2_I2C_PRIM_ADDR; // 0x68
-//uint8_t i2cAddress = BMI2_I2C_SEC_ADDR; // 0x69
+// SPI parameters
+uint8_t chipSelectPin = 5;
+uint32_t clockFrequency = 100000;
 
 void setup()
 {
     // Start serial
     Serial.begin(115200);
-    Serial.println("BMI270 Example 1 - Basic Readings I2C");
+    Serial.println("BMI270 Example 2 - Basic Readings SPI");
 
-    // Initialize the I2C library
-    Wire.begin();
+    // Initialize the SPI library
+    SPI.begin();
 
     // Check if sensor is connected and initialize
-    // Address is optional (defaults to 0x68)
-    while(imu.beginI2C(i2cAddress) != BMI2_OK)
+    // Clock frequency is optional (defaults to 100kHz)
+    while(imu.beginSPI(chipSelectPin, clockFrequency) != BMI2_OK)
     {
         // Not connected, inform user
-        Serial.println("Error: BMI270 not connected, check wiring and I2C address!");
+        Serial.println("Error: BMI270 not connected, check wiring and CS pin!");
 
         // Wait a bit to see if connection is established
         delay(1000);

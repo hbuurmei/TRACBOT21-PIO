@@ -1,4 +1,3 @@
-#include <Arduino.h>
 #include <Wire.h>
 #include "SparkFun_BMI270_Arduino_Library.h"
 
@@ -13,7 +12,7 @@ void setup()
 {
     // Start serial
     Serial.begin(115200);
-    Serial.println("BMI270 Example 1 - Basic Readings I2C");
+    Serial.println("BMI270 Example 8 - Remap Axes");
 
     // Initialize the I2C library
     Wire.begin();
@@ -30,6 +29,15 @@ void setup()
     }
 
     Serial.println("BMI270 connected!");
+
+    // If your IMU axis directions don't match the axis directions you want for
+    // your project, you can remap the axes by calling remapAxes(). Note that
+    // each axis can only be selectd once
+    bmi2_remap axes;
+    axes.x = BMI2_AXIS_POS_Y;
+    axes.y = BMI2_AXIS_NEG_Z;
+    axes.z = BMI2_AXIS_POS_X;
+    imu.remapAxes(axes);
 }
 
 void loop()
