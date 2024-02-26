@@ -4,7 +4,7 @@ tr = 0.5;
 ts = 1;
 wn = 1.8/tr;
 zeta = 4.6/(ts*wn);
-dt = 0.01;
+dt = 0.04;
 %% Design 1
 % Ks = wn^2*s/(s^3+2*zeta*wn*s^2+wn^2*s-wn^2)
 % Hs = 1/s;
