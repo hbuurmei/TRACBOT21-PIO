@@ -16,13 +16,13 @@ void setup() {
   pinMode(IN4,OUTPUT);
   pinMode(EnA,OUTPUT);
   pinMode(EnB,OUTPUT);
-  // Configure Motor 2
-  digitalWrite(IN1,HIGH);
-  digitalWrite(IN2,LOW);
+  // Configure Motor 1
+  digitalWrite(IN1,LOW);
+  digitalWrite(IN2,HIGH);
   analogWrite(EnA,200);
   // Configure Motor 2
-  digitalWrite(IN3,HIGH);
-  digitalWrite(IN4,LOW);
+  digitalWrite(IN3,LOW);
+  digitalWrite(IN4,HIGH);
   analogWrite(EnB,200);
 }
 
