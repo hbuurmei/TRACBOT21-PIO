@@ -49,7 +49,7 @@ void right_stop() {
     digitalWrite(IN4,LOW);  // Opposite of IN3
     analogWrite(EnB,0);
 }
-void stop() {left_stop();right_stop();}
+void stop() {left_stop(); right_stop();}
 void forward(float left_speed = DEFAULT_MOTOR_SPEED, float right_speed = DEFAULT_MOTOR_SPEED) {
     left_forward(left_speed); right_forward(right_speed);
 }
@@ -62,14 +62,14 @@ enum TURN_MODE {
     FORWARD,
     BACKWARD
 };
-void turn_left(TURN_MODE turn_mode,float speed = DEFAULT_MOTOR_SPEED) {
+void turn_left(TURN_MODE turn_mode, float speed = DEFAULT_MOTOR_SPEED) {
     stop();
     switch (turn_mode) {
         case FORWARD:   right_forward(speed); break;
         case BACKWARD:  left_backward(speed); break;
     }
 }
-void turn_right(TURN_MODE turn_mode,float speed = DEFAULT_MOTOR_SPEED) {
+void turn_right(TURN_MODE turn_mode, float speed = DEFAULT_MOTOR_SPEED) {
     stop();
     switch (turn_mode) {
         case FORWARD:   left_forward(speed); break;
