@@ -32,26 +32,26 @@ void setup() {
     imu.initialize();
     imu.calibrate();
     ITimer1.init();
-    ITimer1.setFrequency(CONTROLLER_FREQ, controller2);
+    ITimer1.setFrequency(CONTROLLER_FREQ, controller);
 }
 
 void handle_mode(MODE mode) {
     switch(mode) {
         case STOP:
-            // Right Motor
+            // Left Motor
             digitalWrite(IN1,LOW);
             digitalWrite(IN2,LOW);
             analogWrite(EnA,0);
-            // Left Motor
+            // Right Motor
             digitalWrite(IN3,LOW);
             digitalWrite(IN4,LOW);
             analogWrite(EnB,0);
         case FORWARD:
-            // Right Motor
+            // Left Motor
             digitalWrite(IN1,HIGH);
             digitalWrite(IN2,LOW);
             analogWrite(EnA,DEFAULT_MOTOR_SPEED * RPS_TO_ANALOG);
-            // Left Motor
+            // Right Motor
             digitalWrite(IN3,LOW);
             digitalWrite(IN4,HIGH);
             analogWrite(EnB,DEFAULT_MOTOR_SPEED * RPS_TO_ANALOG);

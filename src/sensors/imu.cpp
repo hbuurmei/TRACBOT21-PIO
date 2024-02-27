@@ -77,18 +77,49 @@ class IMU : public MPU6050 {
             gyroY_bias = gyroY;
             gyroZ_bias = gyroZ;
         }
+        void update_integrator() {
+            // unsigned long curr_time = millis();
+            // angX += gyroX * (curr_time - prev_time) / 1000.;
+            // angY += gyroY * (curr_time - prev_time) / 1000.;
+            // angZ += gyroZ * (curr_time - prev_time) / 1000.;
+            angX += gyroX/25.;
+            angY += gyroY/25.;
+            angZ += gyroZ/25.;
+            posX += velX/25.;
+            posY += velY/25.;
+            posZ += velZ/25.;
+            velX += accelX/25.;
+            velY += accelX/25.;
+            velZ += accelX/25.;
+            
+        }
+        void reset_integrators() {
+            angX = 0;
+            angY = 0;
+            angZ = 0;
+        }
         float accelX;       // meters/sec^2
-        float accelX_bias;  //meters/sec^2
+        float accelX_bias;  // meters/sec^2
         float accelY;       // meters/sec^2
-        float accelY_bias;  //meters/sec^2
+        float accelY_bias;  // meters/sec^2
         float accelZ;       // meters/sec^2
-        float accelZ_bias;  //meters/sec^2
+        float accelZ_bias;  // meters/sec^2
         float gyroX;        // rad/sec
         float gyroX_bias;   // rad/sec
         float gyroY;        // rad/sec
         float gyroY_bias;   // rad/sec
         float gyroZ;        // rad/sec
         float gyroZ_bias;   // rad/sec
+        float angX = 0;     // rad
+        float angY = 0;     // rad
+        float angZ = 0;     // rad
+        float velX = 0;     // meters/sec
+        float velY = 0;     // meters/sec
+        float velZ = 0;     // meters/sec
+        float posX = 0;     // meters/sec
+        float posY = 0;     // meters/sec
+        float posZ = 0;     // meters/sec
+
     private:
         const float g_to_m = 9.81;
         const float deg_to_rad = PI/180.;
@@ -102,4 +133,5 @@ class IMU : public MPU6050 {
         float accel_g_to_raw;
         float gyro_raw_to_dps;
         float gyro_dps_to_raw;
+        unsigned long prev_time = 0; //ms
 };
