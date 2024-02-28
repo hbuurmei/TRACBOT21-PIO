@@ -19,11 +19,11 @@ void setup() {
   // Configure Motor 1 (LEFT)
   digitalWrite(IN1,HIGH);  // HIGH = Forward, LOW = Backward
   digitalWrite(IN2,LOW);  // Opposite of IN1
-  analogWrite(EnA,200);
+  analogWrite(EnA,140);
   // Configure Motor 2 (RIGHT)
   digitalWrite(IN3,LOW);  // LOW = Forward, HIGH = Backward
   digitalWrite(IN4,HIGH);  // Opposite of IN3
-  analogWrite(EnB,200);
+  analogWrite(EnB,140);
 }
 
 void loop() {

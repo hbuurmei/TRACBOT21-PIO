@@ -4,8 +4,8 @@
 #define IN4     7
 #define EnA     11
 #define EnB     6
-#define DEFAULT_MOTOR_SPEED 4*PI // rad/s
-#define MAX_MOTOR_SPEED 20.9440 // rad/s
+#define DEFAULT_MOTOR_SPEED 2*PI // rad/s
+#define MAX_MOTOR_SPEED 10.472 // rad/s
 #define RPS_TO_ANALOG 256 / MAX_MOTOR_SPEED
 #define WHEEL_RADIUS 0.042 // metets
 #define BASE_WIDTH 0.3048
@@ -74,7 +74,7 @@ void controller() {
     // if (abs(wz) > 0.01) {
     dw = -(kp*wz + ki*iwz)*BASE_WIDTH/WHEEL_RADIUS;
     wr_cmd = dw + DEFAULT_MOTOR_SPEED;
-    analogWrite(EnB,wr_cmd * RPS_TO_ANALOG);
+    analogWrite(EnA,wr_cmd * RPS_TO_ANALOG);
     iwz += wz/CONTROLLER_FREQ;
     // } else {Serial.print("\t");}
 }
@@ -86,7 +86,7 @@ void controller2() {
     static float ui_2 = 0;
     dw = 0.03764*yi_1 - 0.03764*yi_2 + 1.879*ui_1 - 0.8869*ui_2;
     wr_cmd = dw*BASE_WIDTH/WHEEL_RADIUS + DEFAULT_MOTOR_SPEED;
-    analogWrite(EnB,wr_cmd * RPS_TO_ANALOG);
+    analogWrite(EnA,wr_cmd * RPS_TO_ANALOG);
     yi_2 = yi_1;
     yi_1 = imu.gyroZ;
     ui_2 = ui_1;
