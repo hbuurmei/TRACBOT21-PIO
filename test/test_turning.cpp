@@ -12,7 +12,7 @@ void setup() {
     imu.initialize();
     // delay(5000);
     imu.calibrate();
-    turn_right(MIDDLE,DEFAULT_MOTOR_SPEED);
+    turn_left(FORWARD,DEFAULT_MOTOR_SPEED);
     imu.reset_integrators();
     ITimer1.init();
     ITimer1.setFrequency(25, check_turn);
@@ -21,6 +21,7 @@ void setup() {
 void loop() {
     imu.update_measurement();
     Serial.println(imu.angZ);
+    
 }
 
 void check_turn() {

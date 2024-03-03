@@ -6,6 +6,7 @@
 #define IN3     8
 #define IN4     7
 #define EnB     6
+#define LOGIC_5V 4
 #include <Arduino.h>
 // #include <motor_control/motor_control.h>
 #define DEFAULT_MOTOR_SPEED 2.5*PI // rad/s
@@ -14,10 +15,6 @@
 #define WHEEL_RADIUS 0.042 // metets
 #define BASE_WIDTH 0.3048
 
-// enum MOTOR_STATE {
-//     STOPPED,
-
-// }
 // Basic Motor commands
 void right_forward(float speed = DEFAULT_MOTOR_SPEED) {
     digitalWrite(IN1,HIGH);  // HIGH = Forward, LOW = Backward
@@ -51,10 +48,12 @@ void left_stop() {
 }
 void stop() {left_stop(); right_stop();}
 void forward(float left_speed = DEFAULT_MOTOR_SPEED, float right_speed = DEFAULT_MOTOR_SPEED) {
-    left_forward(left_speed); right_forward(right_speed);
+    left_forward(left_speed); 
+    right_forward(right_speed);
 }
 void backward(float left_speed = DEFAULT_MOTOR_SPEED,float right_speed = DEFAULT_MOTOR_SPEED) {
-    left_backward(left_speed); right_backward(right_speed);
+    left_backward(left_speed); 
+    right_backward(right_speed);
 }
 
 // Higher level steering commands
@@ -64,18 +63,16 @@ enum TURN_MODE {
     MIDDLE
 };
 void turn_left(TURN_MODE turn_mode, float speed = DEFAULT_MOTOR_SPEED) {
-    stop();
     switch (turn_mode) {
-        case FORWARD:   right_forward(speed); break;
-        case BACKWARD:  left_backward(speed); break;
+        case FORWARD:   right_forward(speed); left_stop(); break;
+        case BACKWARD:  left_backward(speed); right_stop(); break;
         case MIDDLE:    right_forward(max(speed/2,DEFAULT_MOTOR_SPEED)); left_backward(max(speed/2,DEFAULT_MOTOR_SPEED)); break;
     }
 }
 void turn_right(TURN_MODE turn_mode, float speed = DEFAULT_MOTOR_SPEED) {
-    stop();
     switch (turn_mode) {
-        case FORWARD:   left_forward(speed); break;
-        case BACKWARD:  right_backward(speed); break;
+        case FORWARD:   left_forward(speed); right_stop(); break;
+        case BACKWARD:  right_backward(speed); left_stop(); break;
         case MIDDLE:    left_forward(max(speed/2,DEFAULT_MOTOR_SPEED)); right_backward(max(speed/2,DEFAULT_MOTOR_SPEED)); break;
     }
 }

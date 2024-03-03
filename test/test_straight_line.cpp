@@ -1,36 +1,27 @@
-#define IN1     13
-#define IN2     12
-#define IN3     8
-#define IN4     7
-#define EnA     11
-#define EnB     6
-#define DEFAULT_MOTOR_SPEED 2*PI // rad/s
-#define MAX_MOTOR_SPEED 10.472 // rad/s
-#define RPS_TO_ANALOG 256 / MAX_MOTOR_SPEED
-#define WHEEL_RADIUS 0.042 // metets
-#define BASE_WIDTH 0.3048
 #define USE_TIMER_1         true
 #define CONTROLLER_FREQ 25.
 
 #include <Arduino.h>
 #include <sensors/imu.cpp>
 #include <TimerInterrupt.h>
+#include <motor_control/motor_control.cpp>
 
 IMU imu;
 enum MODE {
     STOP,
-    FORWARD
+    GO_FORWARD
 };
-MODE curr_mode = FORWARD;
+MODE curr_mode = GO_FORWARD;
 void handle_mode(MODE mode);
 void controller();
 void controller2();
 void setup() {
     // put your setup code here, to run once:
     Serial.begin(9600);
-    handle_mode(curr_mode);
     imu.initialize();
     imu.calibrate();
+    imu.reset_integrators();
+    handle_mode(curr_mode);
     ITimer1.init();
     ITimer1.setFrequency(CONTROLLER_FREQ, controller);
 }
@@ -46,15 +37,8 @@ void handle_mode(MODE mode) {
             digitalWrite(IN3,LOW);
             digitalWrite(IN4,LOW);
             analogWrite(EnB,0);
-        case FORWARD:
-            // Left Motor
-            digitalWrite(IN1,HIGH);
-            digitalWrite(IN2,LOW);
-            analogWrite(EnA,DEFAULT_MOTOR_SPEED * RPS_TO_ANALOG);
-            // Right Motor
-            digitalWrite(IN3,LOW);
-            digitalWrite(IN4,HIGH);
-            analogWrite(EnB,DEFAULT_MOTOR_SPEED * RPS_TO_ANALOG);
+        case GO_FORWARD:
+            forward();
     }
 }
 float wz;
@@ -67,17 +51,37 @@ void loop() {
 }
 
 float kp = 2.;
-float ki = 0.5;
+float ki = 5;
 void controller() {
-    static float iwz = 0;
-    wz = imu.gyroZ;
+    // static float iwz = 0;
+    // wz = imu.gyroZ;
     // if (abs(wz) > 0.01) {
-    dw = -(kp*wz + ki*iwz)*BASE_WIDTH/WHEEL_RADIUS;
+    imu.update_integrator();
+    dw = -(kp*imu.gyroZ + ki*imu.angZ)*BASE_WIDTH/WHEEL_RADIUS;
     wr_cmd = dw + DEFAULT_MOTOR_SPEED;
     analogWrite(EnA,wr_cmd * RPS_TO_ANALOG);
-    iwz += wz/CONTROLLER_FREQ;
+    // iwz += wz/CONTROLLER_FREQ;
     // } else {Serial.print("\t");}
 }
+// float kp = 2.;
+// float ki = 5.;
+// void controller() {    
+//     static volatile float wz;
+//     static volatile float iwz;
+//     wz = imu.gyroZ;
+//     iwz = imu.angZ;
+//     imu.update_integrator();
+//     if (true) {
+//         // dw = -(kp*imu.gyroZ + ki*sin(imu.angZ)*min(abs(imu.angZ), 20))*BASE_WIDTH/WHEEL_RADIUS;
+//         dw = -(kp*wz + ki*iwz)*BASE_WIDTH/WHEEL_RADIUS;
+//         wr_cmd = dw + DEFAULT_MOTOR_SPEED;
+//         analogWrite(EnA,(DEFAULT_MOTOR_SPEED + dw/2) * RPS_TO_ANALOG);
+//         analogWrite(EnB,(DEFAULT_MOTOR_SPEED - dw/2) * RPS_TO_ANALOG);
+//     } else {
+//         analogWrite(EnA,DEFAULT_MOTOR_SPEED * RPS_TO_ANALOG);
+//         analogWrite(EnB,DEFAULT_MOTOR_SPEED * RPS_TO_ANALOG);
+//     }
+// }
 
 void controller2() {
     static float yi_1 = 0;

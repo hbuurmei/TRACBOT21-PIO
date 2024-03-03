@@ -48,12 +48,18 @@ class IMU : public MPU6050 {
         }
         void update_measurement() {
             getMotion6(&accelX_raw,&accelY_raw,&accelZ_raw,&gyroX_raw,&gyroY_raw,&gyroZ_raw);
-            accelX = accelX_raw * accel_raw_to_g * g_to_m - accelX_bias;
-            accelY = accelY_raw * accel_raw_to_g * g_to_m - accelY_bias;
-            accelZ = accelZ_raw * accel_raw_to_g * g_to_m - accelZ_bias;
-            gyroX = gyroX_raw * gyro_raw_to_dps * deg_to_rad - gyroX_bias;
-            gyroY = gyroY_raw * gyro_raw_to_dps * deg_to_rad - gyroY_bias;
-            gyroZ = gyroZ_raw * gyro_raw_to_dps * deg_to_rad - gyroZ_bias;
+            // accelX = accelX_raw * accel_raw_to_g * g_to_m - accelX_bias;
+            // accelY = accelY_raw * accel_raw_to_g * g_to_m - accelY_bias;
+            // accelZ = accelZ_raw * accel_raw_to_g * g_to_m - accelZ_bias;
+            // gyroX = gyroX_raw * gyro_raw_to_dps * deg_to_rad - gyroX_bias;
+            // gyroY = gyroY_raw * gyro_raw_to_dps * deg_to_rad - gyroY_bias;
+            // gyroZ = gyroZ_raw * gyro_raw_to_dps * deg_to_rad - gyroZ_bias;
+            accelX = (accelX_raw * accel_raw_to_g * g_to_m - accelX_bias + accelX)/2;
+            accelY = (accelY_raw * accel_raw_to_g * g_to_m - accelY_bias + accelY)/2;
+            accelZ = (accelZ_raw * accel_raw_to_g * g_to_m - accelZ_bias + accelZ)/2;
+            gyroX = (gyroX_raw * gyro_raw_to_dps * deg_to_rad - gyroX_bias + gyroX)/2;
+            gyroY = (gyroY_raw * gyro_raw_to_dps * deg_to_rad - gyroY_bias + gyroY)/2;
+            gyroZ = (gyroZ_raw * gyro_raw_to_dps * deg_to_rad - gyroZ_bias + gyroZ)/2;
             #ifdef DEBUG
                 Serial.print("a/g:\t");
                 Serial.print(accelX_raw); Serial.print("\t");
@@ -68,20 +74,31 @@ class IMU : public MPU6050 {
                 Serial.println(getFullScaleGyroRange());
             #endif
         }
-        void calibrate() {
-            update_measurement();
-            accelX_bias = accelX;
-            accelY_bias = accelY;
-            accelZ_bias = accelZ;
-            gyroX_bias = gyroX;
-            gyroY_bias = gyroY;
-            gyroZ_bias = gyroZ;
+        void calibrate(int samples = 500) {
+            float accelX_sum = 0;
+            float accelY_sum = 0;
+            float accelZ_sum = 0;
+            float gyroX_sum = 0;
+            float gyroY_sum = 0;
+            float gyroZ_sum = 0;
+            for (int i = 0; i < samples; i++) {
+                update_measurement();
+                accelX_sum += accelX;
+                accelY_sum += accelY;
+                accelZ_sum += accelZ;
+                gyroX_sum += gyroX;
+                gyroY_sum += gyroY;
+                gyroZ_sum += gyroZ;
+                delay(1);
+            }
+            accelX_bias = accelX_sum/samples;
+            accelY_bias = accelY_sum/samples;
+            accelZ_bias = accelZ_sum/samples;
+            gyroX_bias = gyroX_sum/samples;
+            gyroY_bias = gyroY_sum/samples;
+            gyroZ_bias = gyroZ_sum/samples;
         }
         void update_integrator() {
-            // unsigned long curr_time = millis();
-            // angX += gyroX * (curr_time - prev_time) / 1000.;
-            // angY += gyroY * (curr_time - prev_time) / 1000.;
-            // angZ += gyroZ * (curr_time - prev_time) / 1000.;
             angX += gyroX/25.;
             angY += gyroY/25.;
             angZ += gyroZ/25.;
@@ -91,35 +108,48 @@ class IMU : public MPU6050 {
             velX += accelX/25.;
             velY += accelX/25.;
             velZ += accelX/25.;
-            
+            dist = sqrt(posX*posX + posY*posY);
+            dist_rate = sqrt(velX*velX + velY*velY);
         }
         void reset_integrators() {
-            angX = 0;
-            angY = 0;
-            angZ = 0;
+            angX = 0.;
+            angY = 0.;
+            angZ = 0.;
+            velX = 0.;
+            velY = 0.;
+            velZ = 0.;
+            posX = 0.;
+            posY = 0.;
+            posZ = 0.;
+            accelX = 0.;
+            accelY = 0.;
+            accelZ = 0.;
+            dist = 0.;
+            dist_rate = 0.;
         }
-        float accelX;       // meters/sec^2
+        volatile float accelX;       // meters/sec^2
         float accelX_bias;  // meters/sec^2
-        float accelY;       // meters/sec^2
+        volatile float accelY;       // meters/sec^2
         float accelY_bias;  // meters/sec^2
-        float accelZ;       // meters/sec^2
+        volatile float accelZ;       // meters/sec^2
         float accelZ_bias;  // meters/sec^2
-        float gyroX;        // rad/sec
+        volatile float gyroX;        // rad/sec
         float gyroX_bias;   // rad/sec
-        float gyroY;        // rad/sec
+        volatile float gyroY;        // rad/sec
         float gyroY_bias;   // rad/sec
-        float gyroZ;        // rad/sec
+        volatile float gyroZ;        // rad/sec
         float gyroZ_bias;   // rad/sec
-        float angX = 0;     // rad
-        float angY = 0;     // rad
-        float angZ = 0;     // rad
-        float velX = 0;     // meters/sec
-        float velY = 0;     // meters/sec
-        float velZ = 0;     // meters/sec
-        float posX = 0;     // meters/sec
-        float posY = 0;     // meters/sec
-        float posZ = 0;     // meters/sec
-
+        volatile float angX = 0.;     // rad
+        volatile float angY = 0.;     // rad
+        volatile float angZ = 0.;     // rad
+        volatile float velX = 0.;     // meters/sec
+        volatile float velY = 0.;     // meters/sec
+        volatile float velZ = 0.;     // meters/sec
+        volatile float posX = 0.;     // meters
+        volatile float posY = 0.;     // meters
+        volatile float posZ = 0.;     // meters
+        volatile float dist = 0.;     // meters
+        volatile float dist_rate = 0.; // meters
     private:
         const float g_to_m = 9.81;
         const float deg_to_rad = PI/180.;

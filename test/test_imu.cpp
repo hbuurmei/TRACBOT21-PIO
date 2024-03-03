@@ -1,9 +1,14 @@
 // I2Cdev and MPU6050 must be installed as libraries, or else the .cpp/.h files
 // for both classes must be in the include path of your project
+
+#define USE_TIMER_1     true
 #include "I2Cdev.h"
 #include "MPU6050.h"
 #include <Arduino.h>
 #include <sensors/imu.cpp>
+#include <TimerInterrupt.h>
+#define CONTROLLER_FREQ 25.
+
 // #define DEBUG
 
 // Arduino Wire library is required if I2Cdev I2CDEV_ARDUINO_WIRE implementation
@@ -43,7 +48,7 @@
 bool blinkState = false;
 
 
-
+void integrator();
 // IMU mpu6050 = IMU(accelgyro);
 IMU accelgyro;
 void setup() {
@@ -60,22 +65,26 @@ void setup() {
     Serial.begin(9600);
 
     // // initialize device
-    Serial.println("Initializing I2C devices...");
-    Serial.println(accelgyro.testConnection() ? "MPU6050 connection successful" : "MPU6050 connection failed");
+    // Serial.println("Initializing I2C devices...");
+    // Serial.println(accelgyro.testConnection() ? "MPU6050 connection successful" : "MPU6050 connection failed");
     accelgyro.initialize();
     Serial.print("Hello");
     accelgyro.calibrate();
+    ITimer1.init();
+    ITimer1.setFrequency(CONTROLLER_FREQ, integrator);
 
     // // verify connection
-    Serial.println("Testing device connections...");
-    Serial.println(accelgyro.testConnection() ? "MPU6050 connection successful" : "MPU6050 connection failed");
+    // Serial.println("Testing device connections...");
+    // Serial.println(accelgyro.testConnection() ? "MPU6050 connection successful" : "MPU6050 connection failed");
 
     // configure Arduino LED pin for output
     pinMode(LED_PIN, OUTPUT);
 
 }
+bool reset = true;
 void loop() {
     accelgyro.update_measurement();
+    if (millis() > 5000 && reset) {accelgyro.reset_integrators();reset = false;}
     #ifndef DEBUG
         Serial.print("a/g:\t");
         Serial.print(accelgyro.accelX); Serial.print("\t");
@@ -84,6 +93,13 @@ void loop() {
         Serial.print(accelgyro.gyroX); Serial.print("\t");
         Serial.print(accelgyro.gyroY); Serial.print("\t");
         Serial.println(accelgyro.gyroZ);
+        // Serial.print("a/g:\t");
+        // Serial.print(accelgyro.posX); Serial.print("\t");
+        // Serial.print(accelgyro.posY); Serial.print("\t");
+        // Serial.print(accelgyro.posZ); Serial.print("\t");
+        // Serial.print(accelgyro.angX); Serial.print("\t");
+        // Serial.print(accelgyro.angY); Serial.print("\t");
+        // Serial.println(accelgyro.angZ);
     #endif
     #ifdef OUTPUT_READABLE_ACCELGYRO
         // display tab-separated accel/gyro x/y/z values
@@ -108,4 +124,7 @@ void loop() {
     // blink LED to indicate activity
     blinkState = !blinkState;
     digitalWrite(LED_PIN, blinkState);
+}
+void integrator() {
+    accelgyro.update_integrator();
 }

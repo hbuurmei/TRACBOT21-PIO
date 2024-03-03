@@ -8,6 +8,7 @@
 
 
 #include <Arduino.h>
+#include <sensors/ir_line.cpp>
 
 void setup() {
     // put your setup code here, to run once:
@@ -16,11 +17,20 @@ void setup() {
 
 void loop() {
     Serial.print("Left:");
-    Serial.print(analogRead(IR_LEFT));
+    Serial.print(ir_left());
     Serial.print(",");
     Serial.print("Mid:");
-    Serial.print(analogRead(IR_MID));
+    Serial.print(ir_middle());
     Serial.print(",");
     Serial.print("Right:");
-    Serial.println(analogRead(IR_RIGHT));
+    Serial.println(ir_right());
+
+    // Serial.print("Left:");
+    // Serial.print(line_detected(IR_LEFT));
+    // Serial.print(",");
+    // Serial.print("Mid:");
+    // Serial.print(line_detected(IR_MID));
+    // Serial.print(",");
+    // Serial.print("Right:");
+    // Serial.println(line_detected(IR_RIGHT));
 }
