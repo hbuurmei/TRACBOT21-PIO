@@ -1,9 +1,9 @@
 // #define IR_LEFT     A5
 // #define IR_MID      A4
 // #define IR_RIGHT    A3
-#define IR_RIGHT    A2
+#define IR_RIGHT    A0
 #define IR_MID      A1
-#define IR_LEFT     A0
+#define IR_LEFT     A2
 
 
 

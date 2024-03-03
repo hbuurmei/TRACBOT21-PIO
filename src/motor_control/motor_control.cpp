@@ -60,13 +60,15 @@ void backward(float left_speed = DEFAULT_MOTOR_SPEED,float right_speed = DEFAULT
 // Higher level steering commands
 enum TURN_MODE {
     FORWARD,
-    BACKWARD
+    BACKWARD,
+    MIDDLE
 };
 void turn_left(TURN_MODE turn_mode, float speed = DEFAULT_MOTOR_SPEED) {
     stop();
     switch (turn_mode) {
         case FORWARD:   right_forward(speed); break;
         case BACKWARD:  left_backward(speed); break;
+        case MIDDLE:    right_forward(max(speed/2,DEFAULT_MOTOR_SPEED)); left_backward(max(speed/2,DEFAULT_MOTOR_SPEED)); break;
     }
 }
 void turn_right(TURN_MODE turn_mode, float speed = DEFAULT_MOTOR_SPEED) {
@@ -74,5 +76,6 @@ void turn_right(TURN_MODE turn_mode, float speed = DEFAULT_MOTOR_SPEED) {
     switch (turn_mode) {
         case FORWARD:   left_forward(speed); break;
         case BACKWARD:  right_backward(speed); break;
+        case MIDDLE:    left_forward(max(speed/2,DEFAULT_MOTOR_SPEED)); right_backward(max(speed/2,DEFAULT_MOTOR_SPEED)); break;
     }
 }

@@ -1,19 +1,24 @@
-#define IN1     13
-#define IN2     12
-#define IN3     8
-#define IN4     7
-#define EnA     11
-#define EnB     6
-
-#define IR_LEFT     A0
+#include <motor_control/motor_control.cpp>
+#define IR_RIGHT    A0
 #define IR_MID      A1
-#define IR_RIGHT    A2
+#define IR_LEFT     A2
 
 // Tune the values below
-#define threshold 30
-#define DEFAULT_MOTOR_SPEED 2.5*PI  // rad/s
-#define TURN_SPEED_INCREMENT 0.25*PI  // rad/s
-#define MAX_MOTOR_SPEED 20.9440 // rad/s
+#define threshold 350
+#define TURN_SPEED_INCREMENT 0.5*PI  // rad/s
+
+// RIGHT MOTOR
+#define IN1     13
+#define IN2     12
+#define EnA     11
+// LEFT MOTOR
+#define IN3     8
+#define IN4     7
+#define EnB     6
+#include <Arduino.h>
+// #include <motor_control/motor_control.h>
+#define DEFAULT_MOTOR_SPEED 2.5*PI // rad/s
+#define MAX_MOTOR_SPEED 10.472 // rad/s
 #define RPS_TO_ANALOG 256 / MAX_MOTOR_SPEED
 #define WHEEL_RADIUS 0.042 // metets
 #define BASE_WIDTH 0.3048
@@ -65,6 +70,7 @@ void setup() {
 
 void loop() {
     updateRobotState();
+    Serial.println(robot_state);
     switch (robot_state) {
         case LEFT:
             handleLeftState();
@@ -112,7 +118,7 @@ void updateRobotState() {
 
 void handleOffTrack() {
     // Set the motor speeds to stop
-    handleStop();
+    // handleStop();
     Serial.println("Robot went off track so it stopped...");
 };
 
@@ -220,6 +226,17 @@ void handleLeftTurn() {
     float rps_cmd_left = DEFAULT_MOTOR_SPEED + drps_left;
     analogWrite(EnA, rps_cmd_left * RPS_TO_ANALOG);
 };
+
+// void handleRightTurn() {
+//     // Turning right is defined as negative angular velocity
+//     turn_right(MIDDLE);
+
+// };
+
+// void handleLeftTurn() {
+//     turn_left(MIDDLE);
+// };
+
 
 void handleDebugTestLight(){
     // Print raw light sensor values
