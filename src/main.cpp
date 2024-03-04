@@ -33,12 +33,6 @@ int8_t course = 1;
 void setup() {
     Serial.begin(9600);
     stop();
-    // imu.initialize();
-    // imu.calibrate();
-    // forward();
-    // gyro_controller_on = true;
-    // ITimer1.init();
-    // ITimer1.setFrequency(CONTROLLER_FREQ, controller);
 }
 volatile float wr_cmd;
 void loop() {
@@ -82,13 +76,12 @@ void driving_to_box() {
     }
 }
 void aligning_with_gap() {
-    // if (imu.dist > 0.15) {
-    if (millis() - time_box_reached > 700) {
+    if (millis() - time_box_reached > 500) {
         gyro_controller_on = false;
         stop();
-        delay(500);
+        delay(1000);
         // imu.initialize();
-        // imu.calibrate();
+        imu.calibrate();
         // Conisder if we should add this. might be more robust without?
         switch (course) {
             case 0:
@@ -117,35 +110,29 @@ void turning_to_gap() {
             break;
     }
     if (turn_complete) {
-        // Serial.println("Done!");
         stop();
-        delay(500);
-        // ITimer1.detachInterrupt();
-        // imu.initialize();
+        delay(1000);
         imu.calibrate();
         imu.reset_integrators();
         wz = imu.gyroZ;
         iwz = 0;
         reset_ir_triggers();
         forward();
-        // ITimer1.init();
-        // ITimer1.setFrequency(CONTROLLER_FREQ, controller);
-        // ITimer1.init();
-        // ITimer1.setFrequency(CONTROLLER_FREQ, controller);
         gyro_controller_on = true;
         state = driving_through_gap;
         Serial.println("Entering driving_through_gap");
+        delay(3000);    
     }
 }
 int time_line_reached;
 void driving_through_gap() {
     int8_t counter = min(ir_left_triggers,min(ir_right_triggers,ir_mid_triggers));
     // Serial.print(counter);
-    if (counter >= 3) {
+    // if (counter >= 3) {
+    if(ir_left_on_line || ir_mid_on_line || ir_right_on_line) {
         stop();
-        delay(500);
+        delay(1000);
         imu.calibrate();
-        imu.reset_integrators();
         gyro_controller_on = false;
         switch (course) {
             case 0:
@@ -155,12 +142,18 @@ void driving_through_gap() {
                 turn_left(FORWARD,2*PI);
                 break;
         }
+        imu.reset_integrators();
         state = turning_to_contact_zone;
         Serial.println("Entering turning_to_contact_zone");
         time_line_reached = millis();
     }
 }
 void turning_to_contact_zone() {
+    // static int angZ = 0;
+    // static unsigned long prev_time = 0;
+    // unsigned long curr_time = millis();
+    // angZ += imu.gyroZ * (curr_time - prev_time)/1000.;
+    // prev_time = curr_time;
     bool turn_complete = false;
     // Serial.println(imu.angZ);
     switch (course) {
@@ -173,12 +166,12 @@ void turning_to_contact_zone() {
     }
     if (turn_complete || millis() - time_line_reached > 5000) { //90 deg turn left
         stop();
-        delay(200);
+        delay(1000);
         imu.calibrate();
-        imu.reset_integrators();
         wz = imu.gyroZ;
         iwz = 0;
         forward();
+        imu.reset_integrators();
         gyro_controller_on = true;
         state = driving_to_contact_zone;
         Serial.println("Entering driving_to_contact_zone");
@@ -226,16 +219,17 @@ void turning_to_shooting_zone() {
         gyro_controller_on = true;
         state = driving_to_shooting_zone;
         Serial.println("Entering driving_to_shooting_zone");
-        // delay(6000);
+        delay(6000);
     }
 }
 void driving_to_shooting_zone() {
-    static int timer;
-    timer++;
-    if (timer > 6000) {
-        gyro_controller_on = false;
-        stop();
-    }
+    gyro_controller_on = false;
+    stop();
+    // static int timer;
+    // timer++;
+    // if (timer > 6000) {
+        
+    // }
 }
 
 
@@ -254,7 +248,7 @@ void controller() {
         wr_cmd = dw + DEFAULT_MOTOR_SPEED;
         // analogWrite(EnA,(DEFAULT_MOTOR_SPEED + dw/2) * RPS_TO_ANALOG);
         // analogWrite(EnB,(DEFAULT_MOTOR_SPEED - dw/2) * RPS_TO_ANALOG);
-        analogWrite(EnA,wr_cmd * RPS_TO_ANALOG);
+        // analogWrite(EnA,wr_cmd * RPS_TO_ANALOG);
     }
     // } else {
     //     analogWrite(EnA,wr_cmd * RPS_TO_ANALOG);
