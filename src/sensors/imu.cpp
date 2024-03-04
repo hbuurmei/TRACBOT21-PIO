@@ -75,6 +75,13 @@ class IMU : public MPU6050 {
             #endif
         }
         void calibrate(int samples = 500) {
+            // update_measurement();
+            // accelX_bias = accelX;
+            // accelY_bias = accelY;
+            // accelZ_bias = accelZ;
+            // gyroX_bias = gyroX;
+            // gyroY_bias = gyroY;
+            // gyroZ_bias = gyroZ;
             float accelX_sum = 0;
             float accelY_sum = 0;
             float accelZ_sum = 0;
@@ -98,18 +105,29 @@ class IMU : public MPU6050 {
             gyroY_bias = gyroY_sum/samples;
             gyroZ_bias = gyroZ_sum/samples;
         }
-        void update_integrator() {
-            angX += gyroX/25.;
-            angY += gyroY/25.;
-            angZ += gyroZ/25.;
-            posX += velX/25.;
-            posY += velY/25.;
-            posZ += velZ/25.;
-            velX += accelX/25.;
-            velY += accelX/25.;
-            velZ += accelX/25.;
+        void update_integrator(float frequency) {
+            angX += gyroX/frequency;
+            angY += gyroY/frequency;
+            angZ += gyroZ/frequency;
+            posX += velX/frequency;
+            posY += velY/frequency;
+            posZ += velZ/frequency;
+            velX += accelX/frequency;
+            velY += accelX/frequency;
+            velZ += accelX/frequency;
+            // unsigned long curr_time = millis();
+            // angX += gyroX * (curr_time - prev_time)/1000.;
+            // angY += gyroY * (curr_time - prev_time)/1000.;
+            // angZ += gyroZ * (curr_time - prev_time)/1000.;
+            // posX += velX * (curr_time - prev_time)/1000.;
+            // posY += velY * (curr_time - prev_time)/1000.;
+            // posZ += velZ * (curr_time - prev_time)/1000.;
+            // velX += accelX * (curr_time - prev_time)/1000.;
+            // velY += accelX * (curr_time - prev_time)/1000.;
+            // velZ += accelX * (curr_time - prev_time)/1000.;
             dist = sqrt(posX*posX + posY*posY);
             dist_rate = sqrt(velX*velX + velY*velY);
+            // prev_time = curr_time;
         }
         void reset_integrators() {
             angX = 0.;
