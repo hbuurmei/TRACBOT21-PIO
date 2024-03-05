@@ -5,8 +5,8 @@
 
 #include <Arduino.h>
 #include <sensors/ir_line.cpp>
-// #include <sensors/imu.cpp>
-// #include <TimerInterrupt.h>
+#include <sensors/imu.cpp>
+#include <TimerInterrupt.h>
 #include <motor_control/motor_control.cpp>
 #include <Metro.h>
 #include <servo/servo.cpp>
@@ -33,7 +33,7 @@ void driving_to_shooting_zone();
 void turning_swivel();
 void dropping_balls();
 void celebrating();
-void (*state) (void) = waiting_for_button;
+void (*state) (void) = start;
 
 // Control functions
 void controller();
@@ -49,8 +49,8 @@ course_config course = A;
 void setup() {
     Serial.begin(9600);
     stop();
-    swivel.attach(SWIVEL_SERVO_PIN);
-    hatch.attach(HATCH_SERVO_PIN);
+    // swivel.attach(SWIVEL_SERVO_PIN);
+    // hatch.attach(HATCH_SERVO_PIN);
     button_setup();
 }
 
@@ -70,6 +70,7 @@ void loop() {
 }
 
 void waiting_for_button() { // button for course selection
+    // if button is pressed, choose course B, else choose course A
     uint16_t t = millis();
     while (millis() - t < 10000 && course == A) {
         bool button_read = digitalRead(buttonPin);  // 0 if button is pressed, 1 if not
@@ -80,14 +81,14 @@ void waiting_for_button() { // button for course selection
 void start() {
     // if (Serial.available()) {
     //wave hatch servo at start, before loading balls, to meet performance requirement 2
-    delay(300);
-    hatch.write(HATCH_OPEN);
-    delay(300);
-    hatch.write(HATCH_CLOSED);
-    delay(300);
-    hatch.write(HATCH_OPEN);
-    delay(300);
-    hatch.write(HATCH_CLOSED);
+    // delay(300);
+    // hatch.write(HATCH_OPEN);
+    // delay(300);
+    // hatch.write(HATCH_CLOSED);
+    // delay(300);
+    // hatch.write(HATCH_OPEN);
+    // delay(300);
+    // hatch.write(HATCH_CLOSED);
     delay(5000);
     //Load balls during the 5s delay
     // IR sensor reorientation here (or as it's own state, then change the state transitions)
@@ -115,6 +116,8 @@ void orienting(){
             stop();
             angle_target = ir.angle;
             found_target = 1;
+            delay(100);
+            imu.reset_integrators();
         }
     } // end if(!found_target)
     else{
@@ -122,12 +125,12 @@ void orienting(){
         bool turn_complete = false;
         switch (course) {
             case B:
-                turn_right(MIDDLE, 1.7*PI);
-                turn_complete = imu.angZ < angle_target - orientation_angle;
+                turn_left(MIDDLE, 1.7*PI);
+                turn_complete = imu.angZ > angle_target; // - orientation_angle + 2 * PI;
                 break;
             case A:
                 turn_left(MIDDLE, 1.7*PI);
-                turn_complete = imu.angZ > angle_target + orientation_angle;
+                turn_complete = imu.angZ > angle_target; // + orientation_angle;
                 break;
         } // end switch(course)
         if (turn_complete) { 
@@ -318,10 +321,10 @@ void driving_to_shooting_zone() {
         gyro_controller_on = false;
         switch (course) {
             case B:
-                swivel.write(SWIVEL_RIGHT_ANGLE);
+                // swivel.write(SWIVEL_RIGHT_ANGLE);
                 break;
             case A:
-                swivel.write(SWIVEL_LEFT_ANGLE);
+                // swivel.write(SWIVEL_LEFT_ANGLE);
                 break;
         }
         time_swivel_turn = millis();
@@ -331,24 +334,24 @@ void driving_to_shooting_zone() {
 void turning_swivel() {
     if (millis() - time_swivel_turn > 3000) {
         state = dropping_balls;
-        hatch.write(HATCH_OPEN);
+        // hatch.write(HATCH_OPEN);
     }
 }
 void dropping_balls() { //temporary -- change when we add ramp climbing
     delay(2000);
     state = celebrating;
-    hatch.write(HATCH_CLOSED);
+    // hatch.write(HATCH_CLOSED);
 }
 
 void celebrating() {   
-    delay(300);
-    hatch.write(HATCH_OPEN);
-    delay(300);
-    hatch.write(HATCH_CLOSED);
-    delay(300);
-    hatch.write(HATCH_OPEN);
-    delay(300);
-    hatch.write(HATCH_CLOSED);
+    // delay(300);
+    // hatch.write(HATCH_OPEN);
+    // delay(300);
+    // hatch.write(HATCH_CLOSED);
+    // delay(300);
+    // hatch.write(HATCH_OPEN);
+    // delay(300);
+    // hatch.write(HATCH_CLOSED);
     //end point / terminal state
 }
 
