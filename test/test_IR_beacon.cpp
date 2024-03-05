@@ -27,7 +27,7 @@ void loop() {
     imu.update_measurement();
     ir.update();
 
-    if (ir.max > 5 && ir.value < 0.95*ir.max){
+    if (ir.max > 75 && ir.value < 0.95*ir.max){
         stop();
     }
 
