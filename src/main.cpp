@@ -47,6 +47,7 @@ void setup() {
     imu.initialize();
     imu.calibrate();
     swivel.attach(SWIVEL_SERVO_PIN);
+    swivel.write(60);
     hatch.attach(HATCH_SERVO_PIN);
     button_setup();
     timer.init();

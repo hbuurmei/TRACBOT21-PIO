@@ -5,7 +5,7 @@
 // LEFT MOTOR
 #define IN3     8
 #define IN4     7
-#define EnB     6
+#define EnB     3
 #define LOGIC_5V 4
 #include <Arduino.h>
 // #include <motor_control/motor_control.h>
@@ -24,7 +24,7 @@ void right_forward(float speed = DEFAULT_MOTOR_SPEED) {
 void left_forward(float speed = DEFAULT_MOTOR_SPEED) {
     digitalWrite(IN3,LOW);  // LOW = Forward, HIGH = Backward
     digitalWrite(IN4,HIGH);  // Opposite of IN3
-    analogWrite(EnB,(speed + 0.2) * RPS_TO_ANALOG);
+    analogWrite(EnB,(speed + 0.0) * RPS_TO_ANALOG);
 }
 void right_backward(float speed = DEFAULT_MOTOR_SPEED) {
     digitalWrite(IN1,LOW);  // HIGH = Forward, LOW = Backward
@@ -34,7 +34,7 @@ void right_backward(float speed = DEFAULT_MOTOR_SPEED) {
 void left_backward(float speed = DEFAULT_MOTOR_SPEED) {
     digitalWrite(IN3,HIGH);  // LOW = Forward, HIGH = Backward
     digitalWrite(IN4,LOW);  // Opposite of IN3
-    analogWrite(EnB,(speed + 0.2) * RPS_TO_ANALOG);
+    analogWrite(EnB,(speed + 0.0) * RPS_TO_ANALOG);
 }
 void right_stop() {
     digitalWrite(IN1,LOW);  // HIGH = Forward, LOW = Backward
