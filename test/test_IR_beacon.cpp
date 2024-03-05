@@ -16,9 +16,9 @@ void setup() {
     imu.initialize();
     // delay(5000);
     imu.calibrate();
-    turn_left(MIDDLE,0);
+    turn_left(MIDDLE,1*PI);
     imu.reset_integrators();
-
+    
     ITimer1.init();
     ITimer1.setFrequency(25,[](){imu.update_integrator();});
 }

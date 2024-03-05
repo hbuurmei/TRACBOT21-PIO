@@ -9,14 +9,21 @@
 
 #include <Arduino.h>
 
+#define USE_TIMER_1 1
+#include <TimerInterrupt.h>
+#include <sensors/imu.cpp>
+
+
 class IR_Beacon{
     public:
      float mav;
      int raw;
      int value;
      int max;
+     float angle;
+
      void initialize();
-     void update(); 
+     void update(float curr_ang); 
      void reset();
     private:
      float alpha = 0.1;
@@ -33,7 +40,7 @@ void IR_Beacon::reset(){
     max = 0;
 }
 
-void IR_Beacon::update(){
+void IR_Beacon::update(float curr_ang){
     static unsigned long last_check = 0;
     if (millis() > last_check + IR_POLL_INT){
         last_check = millis();
@@ -46,10 +53,11 @@ void IR_Beacon::update(){
         mav = (alpha*value)+ (1.0-alpha) * mav;
         if (value > max){
             max = value;
+            angle = angle;
         }
         digitalWrite(IR_RST, HIGH);
     }
     else if (millis() > last_check){
         digitalWrite(IR_RST, LOW);
     }
-} 
+}

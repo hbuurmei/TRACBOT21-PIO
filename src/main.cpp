@@ -10,12 +10,14 @@
 #include <Metro/Metro.h>
 #include <servo/servo.cpp>
 #include <button/button.cpp>
-
+#include <sensors/ir_beacon.cpp>
 
 IMU imu;
+IR_Beacon ir;
 // State functions
 void waiting_for_button();
 void start();
+void orienting();
 void driving_to_box();
 void aligning_with_gap();
 void turning_to_gap();
@@ -87,13 +89,29 @@ void start() {
     // IR sensor reorientation here (or as it's own state, then change the state transitions)
     imu.initialize();
     imu.calibrate();
-    forward();
+    imu.reset_integrators();
     gyro_controller_on = true;
+
     ITimer1.init();
     ITimer1.setFrequency(CONTROLLER_FREQ, controller);
-    state = driving_to_box;
-    Serial.println("Entering driving_to_gap");
+
+    ir.initialize();
+
+    turn_left(MIDDLE, 1*PI);
+    state = orienting;
 }
+
+void orienting(){
+    ir.update(imu.angZ);
+    
+
+    if (0){
+        forward();
+        state = driving_to_box;
+        Serial.println("Entering driving_to_gap");
+    }
+}
+
 volatile unsigned long time_box_reached;
 void driving_to_box() {
     static volatile int left;
