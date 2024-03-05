@@ -111,6 +111,7 @@ void orienting(){
             stop();
             angle_target = ir.angle;
             found_target = 1;
+            imu.reset_integrators();
         }
     } // end if(!found_target)
     else{
@@ -118,8 +119,8 @@ void orienting(){
         bool turn_complete = false;
         switch (course) {
             case B:
-                turn_right(MIDDLE, 1.7*PI);
-                turn_complete = imu.angZ < angle_target - orientation_angle;
+                turn_left(MIDDLE, 1.7*PI);
+                turn_complete = imu.angZ > angle_target - orientation_angle;
                 break;
             case A:
                 turn_left(MIDDLE, 1.7*PI);
