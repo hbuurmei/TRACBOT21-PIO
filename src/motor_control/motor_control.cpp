@@ -9,7 +9,8 @@
 #define LOGIC_5V 4
 #include <Arduino.h>
 // #include <motor_control/motor_control.h>
-#define DEFAULT_MOTOR_SPEED 1.75*PI // rad/s
+#define DEFAULT_MOTOR_SPEED 3.0*PI // rad/s
+#define DEFAULT_TURNING_SPEED 1.75*PI
 #define MAX_MOTOR_SPEED 10.472 // rad/s
 #define RPS_TO_ANALOG 256 / MAX_MOTOR_SPEED
 #define WHEEL_RADIUS 0.042 // metets
@@ -62,14 +63,14 @@ enum TURN_MODE {
     BACKWARD,
     MIDDLE
 };
-void turn_left(TURN_MODE turn_mode, float speed = DEFAULT_MOTOR_SPEED) {
+void turn_left(TURN_MODE turn_mode, float speed = DEFAULT_TURNING_SPEED) {
     switch (turn_mode) {
         case FORWARD:   right_forward(speed); left_stop(); break;
         case BACKWARD:  left_backward(speed); right_stop(); break;
         case MIDDLE:    right_forward(speed); left_backward(speed); break;
     }
 }
-void turn_right(TURN_MODE turn_mode, float speed = DEFAULT_MOTOR_SPEED) {
+void turn_right(TURN_MODE turn_mode, float speed = DEFAULT_TURNING_SPEED) {
     switch (turn_mode) {
         case FORWARD:   left_forward(speed); right_stop(); break;
         case BACKWARD:  right_backward(speed); left_stop(); break;

@@ -1,4 +1,5 @@
 #define CONTROLLER_FREQ 25.
+// #define USE_TIMER_0 true
 #define USE_TIMER_1     true
 // #define USE_TIMER_2     true
 
@@ -7,10 +8,13 @@
 // #include <sensors/imu.cpp>
 // #include <TimerInterrupt.h>
 #include <motor_control/motor_control.cpp>
-#include <Metro/Metro.h>
+#include <Metro.h>
 #include <servo/servo.cpp>
 #include <button/button.cpp>
 #include <sensors/ir_beacon.cpp>
+
+#define RIGHT_TURN_90_DEG 70*PI/180
+#define LEFT_TURN_90_DEG -100*PI/180
 
 IMU imu;
 IR_Beacon ir;
@@ -184,10 +188,10 @@ void turning_to_gap() {
     Serial.println(angZ);
     switch (course) {
         case B:
-            turn_complete = angZ > PI/2;
+            turn_complete = angZ > LEFT_TURN_90_DEG;
             break;
         case A:
-            turn_complete = angZ < -PI/2;
+            turn_complete = angZ < RIGHT_TURN_90_DEG;
             break;
     }
     if (turn_complete) {
@@ -239,10 +243,10 @@ void turning_to_contact_zone() {
     // Serial.println(imu.angZ);
     switch (course) {
         case B:
-            turn_complete = imu.angZ < -PI/2;
+            turn_complete = imu.angZ < RIGHT_TURN_90_DEG;
             break;
         case A:
-            turn_complete = imu.angZ > PI/2;
+            turn_complete = imu.angZ > LEFT_TURN_90_DEG;
             break;
     }
     if (turn_complete || millis() - time_line_reached > 5000) { //90 deg turn left
@@ -284,10 +288,10 @@ void turning_to_shooting_zone() {
     bool turn_complete = false;
     switch (course) {
         case B:
-            turn_complete = imu.angZ > PI/2;
+            turn_complete = imu.angZ > LEFT_TURN_90_DEG;
             break;
         case A:
-            turn_complete = imu.angZ < -PI/2;
+            turn_complete = imu.angZ < RIGHT_TURN_90_DEG;
             break;
     }
     if (turn_complete) {
@@ -348,13 +352,13 @@ void celebrating() {
     //end point / terminal state
 }
 
-float dw;
-float kp = 2.;
-float ki = 5.;
-float sign(float x) {x >= 0 ? 1. : -1.;}
-void controller() {    
-    wz = imu.gyroZ;
-    iwz = imu.angZ;
-    imu.update_integrator();
-    update_ir_states();
-}
+// float dw;
+// float kp = 2.;
+// float ki = 5.;
+// float sign(float x) {x >= 0 ? 1. : -1.;}
+// void controller() {    
+//     wz = imu.gyroZ;
+//     iwz = imu.angZ;
+//     imu.update_integrator();
+//     update_ir_states();
+// }
