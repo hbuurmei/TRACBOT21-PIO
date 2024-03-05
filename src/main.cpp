@@ -1,17 +1,18 @@
 #define CONTROLLER_FREQ 25.
-#define USE_TIMER_1     true
+// #define USE_TIMER_1     true
 // #define USE_TIMER_2     true
 
 #include <Arduino.h>
 #include <sensors/ir_line.cpp>
 #include <sensors/imu.cpp>
-#include <TimerInterrupt.h>
+// #include <TimerInterrupt.h>
+#include <ISR_Timer.h>
 #include <motor_control/motor_control.cpp>
 #include <Metro/Metro.h>
 #include <servo/servo.cpp>
 #include <button/button.cpp>
 
-
+ISR_Timer timer;
 IMU imu;
 // State functions
 void waiting_for_button();
@@ -27,7 +28,7 @@ void driving_to_shooting_zone();
 void turning_swivel();
 void dropping_balls();
 void celebrating();
-void (*state) (void) = waiting_for_button;
+void (*state) (void) = driving_to_box;
 
 // Control functions
 void controller();
@@ -43,24 +44,29 @@ course_config course = A;
 void setup() {
     Serial.begin(9600);
     stop();
+    imu.initialize();
+    imu.calibrate();
     swivel.attach(SWIVEL_SERVO_PIN);
     hatch.attach(HATCH_SERVO_PIN);
     button_setup();
+    timer.init();
+    timer.setInterval(40,controller);
 }
 
 volatile float wr_cmd;
 void loop() {
     imu.update_measurement();
     state();
-    Serial.println(iwz);
-    Serial.print("Left:");
-    Serial.print(ir_left_triggers);
-    Serial.print(",");
-    Serial.print("Mid:");
-    Serial.print(ir_mid_triggers);
-    Serial.print(",");
-    Serial.print("Right:");
-    Serial.println(ir_right_triggers);
+    // Serial.println(iwz);
+    // Serial.print("Left:");
+    // Serial.print(ir_left_triggers);
+    // Serial.print(",");
+    // Serial.print("Mid:");
+    // Serial.print(ir_mid_triggers);
+    // Serial.print(",");
+    // Serial.print("Right:");
+    // Serial.println(ir_right_triggers);
+    timer.run();
 }
 
 void waiting_for_button() { // button for course selection
@@ -89,8 +95,10 @@ void start() {
     imu.calibrate();
     forward();
     gyro_controller_on = true;
-    ITimer1.init();
-    ITimer1.setFrequency(CONTROLLER_FREQ, controller);
+    // ITimer1.init();
+    // ITimer1.setFrequency(CONTROLLER_FREQ, controller);
+    timer.init();
+    timer.setInterval(40,controller);
     state = driving_to_box;
     Serial.println("Entering driving_to_gap");
 }

@@ -1,9 +1,14 @@
 // #include <Arduino.h>
-#define USE_TIMER_1 true
+// #define USE_TIMER_1 true
 #include <motor_control/motor_control.cpp>
 #include <sensors/imu.cpp>
-#include <TimerInterrupt.h>
+// #include <Servo.h>
+#include <servo/servo.cpp>
+// #include <TimerInterrupt.h>
+#include <ISR_Timer.h>
 
+Servo servo;
+ISR_Timer timer;
 IMU imu;
 void check_turn();
 void setup() {
@@ -12,16 +17,20 @@ void setup() {
     imu.initialize();
     // delay(5000);
     imu.calibrate();
-    turn_left(FORWARD,DEFAULT_MOTOR_SPEED);
+    turn_left(MIDDLE,DEFAULT_MOTOR_SPEED);
     imu.reset_integrators();
-    ITimer1.init();
-    ITimer1.setFrequency(25, check_turn);
+    // ITimer1.init();
+    // ITimer1.setFrequency(25, check_turn);
+    timer.init();
+    timer.setInterval(40, check_turn);
+    servo.attach(3);
+    servo.write(60);
 }
 
 void loop() {
     imu.update_measurement();
     Serial.println(imu.angZ);
-    
+    timer.run();
 }
 
 void check_turn() {
