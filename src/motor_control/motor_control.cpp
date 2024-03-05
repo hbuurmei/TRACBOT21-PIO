@@ -9,7 +9,7 @@
 #define LOGIC_5V 4
 #include <Arduino.h>
 // #include <motor_control/motor_control.h>
-#define DEFAULT_MOTOR_SPEED 3.0*PI // rad/s
+#define DEFAULT_MOTOR_SPEED 1.75*PI // rad/s
 #define MAX_MOTOR_SPEED 10.472 // rad/s
 #define RPS_TO_ANALOG 256 / MAX_MOTOR_SPEED
 #define WHEEL_RADIUS 0.042 // metets

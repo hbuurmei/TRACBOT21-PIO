@@ -1,10 +1,10 @@
 #define IR_BEACON A3
 #define IR_RST 4
 
-#define IR_RAW_MAX 512
-#define IR_RAW_MIN 1000
+#define IR_RAW_MIN 563
+#define IR_RAW_MAX 1000
 
-#define IR_POLL_FREQ 250
+#define IR_POLL_INT 100
 #define IR_AV_LEN 10
 
 #include <Arduino.h>
@@ -12,6 +12,7 @@
 class IR_Beacon{
     public:
      float mav;
+     int raw;
      int value;
      int max;
      void initialize();
@@ -23,6 +24,7 @@ class IR_Beacon{
 
 void IR_Beacon::initialize(){
     pinMode(IR_RST, OUTPUT);
+    pinMode(IR_BEACON, INPUT);
     digitalWrite(IR_RST, LOW);
 }
 
@@ -32,11 +34,12 @@ void IR_Beacon::reset(){
 }
 
 void IR_Beacon::update(){
-    static int last_check = 0;
-    if (millis() + IR_POLL_FREQ > last_check){
+    static unsigned long last_check = 0;
+    if (millis() > last_check + IR_POLL_INT){
         last_check = millis();
+        raw = analogRead(IR_BEACON);
         value = map(
-            analogRead(IR_BEACON),
+            raw,
             IR_RAW_MIN, IR_RAW_MAX,
             0, 1023
         );
