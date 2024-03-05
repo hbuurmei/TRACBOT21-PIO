@@ -1,14 +1,17 @@
-#define SERVO_CTRL_PIN  3
+#define SERVO_CTRL_PIN  5
 #include <Arduino.h>
 #include <Servo.h>
+#include <motor_control/motor_control.cpp>
 
 Servo my_servo;
 void setup() {
     // put your setup code here, to run once:
-    pinMode(SERVO_CTRL_PIN,OUTPUT);
-    // analogWrite(SERVO_CTRL_PIN,50);
+    stop();
+    // pinMode(SERVO_CTRL_PIN,OUTPUT);
+    // analogWrite(SERVO_CTRL_PIN,255);
     
     my_servo.attach(SERVO_CTRL_PIN);
+    // my_servo.write(130);
     my_servo.write(180);
     
 }

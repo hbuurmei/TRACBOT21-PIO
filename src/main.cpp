@@ -8,11 +8,13 @@
 #include <TimerInterrupt.h>
 #include <motor_control/motor_control.cpp>
 #include <Metro/Metro.h>
-
+#include <servo/servo.cpp>
+#include <button/button.cpp>
 
 
 IMU imu;
 // State functions
+void waiting_for_button();
 void start();
 void driving_to_box();
 void aligning_with_gap();
@@ -22,18 +24,30 @@ void turning_to_contact_zone();
 void driving_to_contact_zone();
 void turning_to_shooting_zone();
 void driving_to_shooting_zone();
-void (*state) (void) = start;
+void turning_swivel();
+void dropping_balls();
+void celebrating();
+void (*state) (void) = waiting_for_button;
+
 // Control functions
 void controller();
 static volatile float wz;
 static volatile float iwz;
 static bool gyro_controller_on = false;
-int8_t course = 1;
+enum course_config {
+    B,  // B --> 0
+    A   // A --> 1
+};
+course_config course = A;
 
 void setup() {
     Serial.begin(9600);
     stop();
+    swivel.attach(SWIVEL_SERVO_PIN);
+    hatch.attach(HATCH_SERVO_PIN);
+    button_setup();
 }
+
 volatile float wr_cmd;
 void loop() {
     imu.update_measurement();
@@ -48,20 +62,39 @@ void loop() {
     Serial.print("Right:");
     Serial.println(ir_right_triggers);
 }
+
+void waiting_for_button() { // button for course selection
+    uint16_t t = millis();
+    while (millis() - t < 10000 && course == A) {
+        bool button_read = digitalRead(buttonPin);  // 0 if button is pressed, 1 if not
+        course = button_read ? A : B;
+    }
+    state = start;
+}
 void start() {
     // if (Serial.available()) {
-    if (millis() > 5000) {
-        imu.initialize();
-        imu.calibrate();
-        forward();
-        gyro_controller_on = true;
-        ITimer1.init();
-        ITimer1.setFrequency(CONTROLLER_FREQ, controller);
-        state = driving_to_box;
-        Serial.println("Entering driving_to_gap");
-    }
+    //wave hatch servo at start, before loading balls, to meet performance requirement 2
+    delay(300);
+    hatch.write(HATCH_OPEN);
+    delay(300);
+    hatch.write(HATCH_CLOSED);
+    delay(300);
+    hatch.write(HATCH_OPEN);
+    delay(300);
+    hatch.write(HATCH_CLOSED);
+    delay(5000);
+    //Load balls during the 5s delay
+    // IR sensor reorientation here (or as it's own state, then change the state transitions)
+    imu.initialize();
+    imu.calibrate();
+    forward();
+    gyro_controller_on = true;
+    ITimer1.init();
+    ITimer1.setFrequency(CONTROLLER_FREQ, controller);
+    state = driving_to_box;
+    Serial.println("Entering driving_to_gap");
 }
-volatile int time_box_reached;
+volatile unsigned long time_box_reached;
 void driving_to_box() {
     static volatile int left;
     static volatile int middle;
@@ -84,10 +117,10 @@ void aligning_with_gap() {
         imu.calibrate();
         // Conisder if we should add this. might be more robust without?
         switch (course) {
-            case 0:
+            case B:
                 turn_left(FORWARD,2*PI);
                 break;
-            case 1:
+            case A:
                 turn_right(FORWARD,2*PI);
                 break;
         }
@@ -102,10 +135,10 @@ void turning_to_gap() {
     angZ = imu.angZ;
     Serial.println(angZ);
     switch (course) {
-        case 0:
+        case B:
             turn_complete = angZ > PI/2;
             break;
-        case 1:
+        case A:
             turn_complete = angZ < -PI/2;
             break;
     }
@@ -135,10 +168,10 @@ void driving_through_gap() {
         imu.calibrate();
         gyro_controller_on = false;
         switch (course) {
-            case 0:
+            case B:
                 turn_right(FORWARD,2*PI);
                 break;
-            case 1:
+            case A:
                 turn_left(FORWARD,2*PI);
                 break;
         }
@@ -157,10 +190,10 @@ void turning_to_contact_zone() {
     bool turn_complete = false;
     // Serial.println(imu.angZ);
     switch (course) {
-        case 0:
+        case B:
             turn_complete = imu.angZ < -PI/2;
             break;
-        case 1:
+        case A:
             turn_complete = imu.angZ > PI/2;
             break;
     }
@@ -187,10 +220,10 @@ void driving_to_contact_zone() {
         imu.calibrate();
         imu.reset_integrators();
         switch (course) {
-            case 0:
+            case B:
                 turn_left(BACKWARD,2*PI);
                 break;
-            case 1:
+            case A:
                 turn_right(BACKWARD,2*PI);
                 break;
         }
@@ -198,13 +231,14 @@ void driving_to_contact_zone() {
         Serial.println("Entering turning_to_shooting_zone");
     // }
 }
+volatile unsigned long time_driving_to_shooting_zone;
 void turning_to_shooting_zone() {
     bool turn_complete = false;
     switch (course) {
-        case 0:
+        case B:
             turn_complete = imu.angZ > PI/2;
             break;
-        case 1:
+        case A:
             turn_complete = imu.angZ < -PI/2;
             break;
     }
@@ -219,19 +253,52 @@ void turning_to_shooting_zone() {
         gyro_controller_on = true;
         state = driving_to_shooting_zone;
         Serial.println("Entering driving_to_shooting_zone");
-        delay(6000);
+        time_driving_to_shooting_zone = millis();
+        // delay(6000);
+
     }
 }
+volatile unsigned long time_swivel_turn;
 void driving_to_shooting_zone() {
-    gyro_controller_on = false;
-    stop();
-    // static int timer;
-    // timer++;
-    // if (timer > 6000) {
-        
-    // }
+    if (millis() - time_driving_to_shooting_zone > 6000) {
+        stop();
+        delay(3000);
+        gyro_controller_on = false;
+        switch (course) {
+            case B:
+                swivel.write(SWIVEL_RIGHT_ANGLE);
+                break;
+            case A:
+                swivel.write(SWIVEL_LEFT_ANGLE);
+                break;
+        }
+        time_swivel_turn = millis();
+        state = turning_swivel;
+    }
+}
+void turning_swivel() {
+    if (millis() - time_swivel_turn > 3000) {
+        state = dropping_balls;
+        hatch.write(HATCH_OPEN);
+    }
+}
+void dropping_balls() { //temporary -- change when we add ramp climbing
+    delay(1000);
+    state = celebrating;
+    hatch.write(HATCH_CLOSED);
 }
 
+void celebrating() {   
+    delay(300);
+    hatch.write(HATCH_OPEN);
+    delay(300);
+    hatch.write(HATCH_CLOSED);
+    delay(300);
+    hatch.write(HATCH_OPEN);
+    delay(300);
+    hatch.write(HATCH_CLOSED);
+    //end point / terminal state
+}
 
 float dw;
 float kp = 2.;
@@ -242,15 +309,4 @@ void controller() {
     iwz = imu.angZ;
     imu.update_integrator();
     update_ir_states();
-    if (gyro_controller_on) {
-        // dw = -(kp*wz + ki*sign(iwz)*min(abs(iwz), 10))*BASE_WIDTH/WHEEL_RADIUS;
-        dw = -(kp*wz + ki*iwz)*BASE_WIDTH/WHEEL_RADIUS;
-        wr_cmd = dw + DEFAULT_MOTOR_SPEED;
-        // analogWrite(EnA,(DEFAULT_MOTOR_SPEED + dw/2) * RPS_TO_ANALOG);
-        // analogWrite(EnB,(DEFAULT_MOTOR_SPEED - dw/2) * RPS_TO_ANALOG);
-        // analogWrite(EnA,wr_cmd * RPS_TO_ANALOG);
-    }
-    // } else {
-    //     analogWrite(EnA,wr_cmd * RPS_TO_ANALOG);
-    // }
 }
