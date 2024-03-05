@@ -22,8 +22,12 @@ void check_turn() {
     static float angZ = 0;
     static unsigned long prev_time = 0;
     unsigned long curr_time = millis();
-    angZ += imu.gyroZ * ((curr_time - prev_time)/1000.);
-    Serial.println(angZ);
-    if (angZ < -100*PI/180) {stop();}
-    prev_time = curr_time;
+    if (curr_time - prev_time > 40) {
+        angZ += imu.gyroZ * ((curr_time - prev_time)/1000.);
+        prev_time = curr_time;
+        Serial.println(angZ);
+    }
+    
+    if (angZ < -90*PI/180) {stop();}
+    // if (angZ > 90*PI/180) {stop();}
 }
