@@ -1,5 +1,5 @@
 // #include <Arduino.h>
-#define USE_TIMER_1 true
+#define USE_TIMER_1 1
 #include <motor_control/motor_control.cpp>
 #include <sensors/imu.cpp>
 #include <sensors/ir_beacon.cpp>
@@ -8,7 +8,6 @@
 IMU imu;
 IR_Beacon ir;
 
-void check_turn();
 void setup() {
     Serial.begin(9600);
     stop();
@@ -17,26 +16,27 @@ void setup() {
     imu.initialize();
     // delay(5000);
     imu.calibrate();
-    turn_left(MIDDLE,DEFAULT_MOTOR_SPEED);
+    turn_left(MIDDLE,0);
     imu.reset_integrators();
+
     ITimer1.init();
-    ITimer1.setFrequency(25, check_turn);
+    ITimer1.setFrequency(25,[](){imu.update_integrator();});
 }
 
 void loop() {
-    static int lastMax = 0;
     imu.update_measurement();
     ir.update();
 
-    if (lastMax != ir.max){
-        Serial.println("NEW MAX!");
-        lastMax = ir.max;
+    if (ir.max > 5 && ir.value < 0.95*ir.max){
+        stop();
     }
 
-    Serial.print("ANGLE: ");
-    Serial.print(imu.angZ);
-    Serial.print("RAW: ");
-    Serial.print(ir.value);
-    Serial.print("MAV: ");
-    Serial.print(ir.mav);
+    Serial.print(">ANGLE:");
+    Serial.println(imu.angZ);
+    Serial.print(">RAW:");
+    Serial.println(ir.raw);
+    Serial.print(">MAP:");
+    Serial.println(ir.value);
+    Serial.print(">MAV:");
+    Serial.println(ir.mav);
 }
