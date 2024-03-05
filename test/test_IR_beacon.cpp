@@ -25,7 +25,7 @@ void setup() {
 
 void loop() {
     imu.update_measurement();
-    ir.update();
+    ir.update(imu.angZ);
 
     if (ir.max > 75 && ir.value < 0.95*ir.max){
         stop();

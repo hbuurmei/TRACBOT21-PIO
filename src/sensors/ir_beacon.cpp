@@ -53,7 +53,7 @@ void IR_Beacon::update(float curr_ang){
         mav = (alpha*value)+ (1.0-alpha) * mav;
         if (value > max){
             max = value;
-            angle = angle;
+            angle = curr_ang;
         }
         digitalWrite(IR_RST, HIGH);
     }

@@ -1,4 +1,4 @@
-#include <Servo.h>
+#include <PWMServo.h>
 #define SWIVEL_SERVO_PIN        3
 #define HATCH_SERVO_PIN         5
 #define SWIVEL_LEFT_ANGLE       0
@@ -7,5 +7,5 @@
 #define HATCH_CLOSED            0
 #define HATCH_OPEN              180
 
-Servo swivel;
-Servo hatch;
+PWMServo swivel;
+PWMServo hatch;

@@ -4,8 +4,8 @@
 
 #include <Arduino.h>
 #include <sensors/ir_line.cpp>
-#include <sensors/imu.cpp>
-#include <TimerInterrupt.h>
+// #include <sensors/imu.cpp>
+// #include <TimerInterrupt.h>
 #include <motor_control/motor_control.cpp>
 #include <Metro/Metro.h>
 #include <servo/servo.cpp>
@@ -97,19 +97,49 @@ void start() {
 
     ir.initialize();
 
-    turn_left(MIDDLE, 1*PI);
+    turn_left(MIDDLE, 1.7*PI);
     state = orienting;
 }
 
 void orienting(){
+    static float angle_target = 0;
+    static bool found_target = 0;
+    static float orientation_angle = 66*PI/180; //may need refining
     ir.update(imu.angZ);
-    
-
-    if (0){
-        forward();
-        state = driving_to_box;
-        Serial.println("Entering driving_to_gap");
-    }
+    if (!found_target){
+        if (imu.angZ > 2*PI){
+            stop();
+            angle_target = ir.angle;
+            found_target = 1;
+        }
+    } // end if(!found_target)
+    else{
+        // turn to angle_target plus (or minus) 66 degrees
+        bool turn_complete = false;
+        switch (course) {
+            case B:
+                turn_right(MIDDLE, 1.7*PI);
+                turn_complete = imu.angZ < angle_target - orientation_angle;
+                break;
+            case A:
+                turn_left(MIDDLE, 1.7*PI);
+                turn_complete = imu.angZ > angle_target + orientation_angle;
+                break;
+        } // end switch(course)
+        if (turn_complete) { 
+            stop();
+            delay(1000);
+            imu.calibrate();
+            wz = imu.gyroZ;
+            iwz = 0;
+            forward();
+            imu.reset_integrators();
+            gyro_controller_on = true;
+            state = driving_to_box;
+            Serial.println("Entering driving_to_box");
+            delay(3000);
+        } // end if turn_complete
+    } //end else
 }
 
 volatile unsigned long time_box_reached;
@@ -301,7 +331,7 @@ void turning_swivel() {
     }
 }
 void dropping_balls() { //temporary -- change when we add ramp climbing
-    delay(1000);
+    delay(2000);
     state = celebrating;
     hatch.write(HATCH_CLOSED);
 }

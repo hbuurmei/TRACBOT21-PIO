@@ -73,6 +73,6 @@ void turn_right(TURN_MODE turn_mode, float speed = DEFAULT_MOTOR_SPEED) {
     switch (turn_mode) {
         case FORWARD:   left_forward(speed); right_stop(); break;
         case BACKWARD:  right_backward(speed); left_stop(); break;
-        case MIDDLE:    left_forward(speed); right_backward(speed)); break;
+        case MIDDLE:    left_forward(speed); right_backward(speed); break;
     }
 }
