@@ -1,19 +1,18 @@
 #define CONTROLLER_FREQ 25.
-// #define USE_TIMER_1     true
-// #define USE_TIMER_2     true
+#define LEFT_90_TURN 85*PI/180
+#define RIGHT_90_TURN 82.5*PI/180
 
 #include <Arduino.h>
 #include <sensors/ir_line.cpp>
 #include <sensors/imu.cpp>
-// #include <TimerInterrupt.h>
 #include <ISR_Timer.h>
 #include <motor_control/motor_control.cpp>
-#include <Metro/Metro.h>
 #include <servo/servo.cpp>
 #include <button/button.cpp>
 
 ISR_Timer timer;
 IMU imu;
+
 // State functions
 void waiting_for_button();
 void start();
@@ -28,7 +27,9 @@ void driving_to_shooting_zone();
 void turning_swivel();
 void dropping_balls();
 void celebrating();
-void (*state) (void) = driving_to_box;
+
+// Initialize state
+void (*state) (void) = start;  // usually we would use waiting_for_button
 
 // Control functions
 void controller();
@@ -47,26 +48,18 @@ void setup() {
     imu.initialize();
     imu.calibrate();
     swivel.attach(SWIVEL_SERVO_PIN);
+    // Move swivel to neutral position
     swivel.write(60);
     hatch.attach(HATCH_SERVO_PIN);
     button_setup();
     timer.init();
-    timer.setInterval(40,controller);
+    timer.setInterval(40, controller);
 }
 
 volatile float wr_cmd;
 void loop() {
     imu.update_measurement();
     state();
-    // Serial.println(iwz);
-    // Serial.print("Left:");
-    // Serial.print(ir_left_triggers);
-    // Serial.print(",");
-    // Serial.print("Mid:");
-    // Serial.print(ir_mid_triggers);
-    // Serial.print(",");
-    // Serial.print("Right:");
-    // Serial.println(ir_right_triggers);
     timer.run();
 }
 
@@ -79,17 +72,16 @@ void waiting_for_button() { // button for course selection
     state = start;
 }
 void start() {
-    // if (Serial.available()) {
-    //wave hatch servo at start, before loading balls, to meet performance requirement 2
-    delay(300);
-    hatch.write(HATCH_OPEN);
-    delay(300);
-    hatch.write(HATCH_CLOSED);
-    delay(300);
-    hatch.write(HATCH_OPEN);
-    delay(300);
-    hatch.write(HATCH_CLOSED);
-    delay(5000);
+    // Wave hatch servo at start, before loading balls, to meet performance requirement 2
+    delay(1000);
+    // hatch.write(HATCH_OPEN);
+    // delay(500);
+    // hatch.write(HATCH_CLOSED);
+    // delay(500);
+    // hatch.write(HATCH_OPEN);
+    // delay(500);
+    // hatch.write(HATCH_CLOSED);
+    // delay(5000);
     //Load balls during the 5s delay
     // IR sensor reorientation here (or as it's own state, then change the state transitions)
     imu.initialize();
@@ -99,9 +91,9 @@ void start() {
     // ITimer1.init();
     // ITimer1.setFrequency(CONTROLLER_FREQ, controller);
     timer.init();
-    timer.setInterval(40,controller);
+    timer.setInterval(40, controller);
     state = driving_to_box;
-    Serial.println("Entering driving_to_gap");
+    Serial.println("Entering driving_to_box");
 }
 volatile unsigned long time_box_reached;
 void driving_to_box() {
@@ -114,6 +106,7 @@ void driving_to_box() {
     int8_t counter = min(left,min(right,middle));
     if (counter >= 1) {
         state = aligning_with_gap;
+        Serial.println("Entering aligning_with_gap");
         time_box_reached = millis();
     }
 }
@@ -145,10 +138,10 @@ void turning_to_gap() {
     Serial.println(angZ);
     switch (course) {
         case B:
-            turn_complete = angZ > PI/2;
+            turn_complete = angZ >= RIGHT_90_TURN;
             break;
         case A:
-            turn_complete = angZ < -PI/2;
+            turn_complete = angZ <= -LEFT_90_TURN;
             break;
     }
     if (turn_complete) {
