@@ -1,7 +1,7 @@
 #define IR_BEACON A3
 #define IR_RST 4
 
-#define IR_RAW_MIN 563
+#define IR_RAW_MIN 561
 #define IR_RAW_MAX 1000
 
 #define IR_POLL_INT 100
@@ -28,6 +28,7 @@ void IR_Beacon::initialize(){
     pinMode(IR_RST, OUTPUT);
     pinMode(IR_BEACON, INPUT);
     digitalWrite(IR_RST, LOW);
+    analogReference(DEFAULT);
 }
 
 void IR_Beacon::reset(){

@@ -1,7 +1,7 @@
 // #include <Arduino.h>
 #define USE_TIMER_1 1
 #include <motor_control/motor_control.cpp>
-// #include <sensors/imu.cpp>
+#include <sensors/imu.cpp>
 #include <sensors/ir_beacon.cpp>
 #include <TimerInterrupt.h>
 
