@@ -1,6 +1,7 @@
 #define CONTROLLER_FREQ 25.
 #define LEFT_90_TURN 85*PI/180
 #define RIGHT_90_TURN 82.5*PI/180
+#define swivel_interval 2    //2 degree turn intervals for now
 
 #include <Arduino.h>
 #include <sensors/ir_line.cpp>
@@ -45,12 +46,14 @@ course_config course = A;
 
 void setup() {
     Serial.begin(9600);
+    Serial.println("START");
     stop();
+    ir.initialize();
     imu.initialize();
     imu.calibrate();
     swivel.attach(SWIVEL_SERVO_PIN);
     // Move swivel to neutral position
-    swivel.write(60);
+    swivel.write(0);
     hatch.attach(HATCH_SERVO_PIN);
     button_setup();
     timer.init();
@@ -75,7 +78,6 @@ void waiting_for_button() { // button for course selection
 }
 void start() {
     // Wave hatch servo at start, before loading balls, to meet performance requirement 2
-    delay(1000);
     // hatch.write(HATCH_OPEN);
     // delay(500);
     // hatch.write(HATCH_CLOSED);
@@ -93,72 +95,100 @@ void start() {
 
     // ITimer1.init();
     // ITimer1.setFrequency(CONTROLLER_FREQ, controller);
-    timer.init();
-    timer.setInterval(40,controller);
-    ir.initialize();
 
-    turn_left(MIDDLE, 1.5*PI);
+    // turn_left(MIDDLE, 1.5*PI);
+    stop();
     state = orienting;
 }
 
 void orienting(){
-    static float angle_target = 0;
-    static bool found_target = 0;
+    static float angle = 0;
+    static long angle_target = 0;
+    static float angle_target_body = 0;
+    // static bool found_target = 0;
     static float orientation_angle = 66*PI/180; //FLAG: may need refining
-    ir.update(imu.angZ);
-    if (!found_target){
-        if (imu.angZ > 2*PI){
-            stop();
-            angle_target = ir.angle;
-            found_target = 1;
-            delay(800);
-            imu.reset_integrators();
+    static float max_ir_reading = 0;
+    static bool turn_complete = 0;
+    static unsigned long last_servo_move = 0;
+    
+    if (angle <= 130){
+        if (millis()>last_servo_move+250){
+            last_servo_move = millis();
+            swivel.write(angle);
+            angle += swivel_interval;
+            Serial.print("Angle: ");
+            Serial.print(angle);
+            Serial.print(" Reading: ");
+            Serial.println(ir.value);
+            if (ir.value > max_ir_reading){
+                max_ir_reading = ir.value;
+                angle_target = angle;
+                angle_target_body = float(map(angle_target, 0, 130, -90, 90)) * PI/180;
+            }
         }
-    } // end if(!found_target)
-    else{
-        // turn to angle_target (facing beacon))
-        bool turn_complete = false;
-        switch (course) {
-            case B:
-                turn_left(MIDDLE, 1.5*PI);
-                turn_complete = imu.angZ > angle_target; // - orientation_angle + 2 * PI;
-                break;
-            case A:
-                turn_left(MIDDLE, 1.5*PI);
-                turn_complete = imu.angZ > angle_target; // + orientation_angle;
-                break;
-        } // end switch(course)
+        imu.reset_integrators();
+    }    
+    else if(!turn_complete){
+        Serial.print("Target angle: ");
+        Serial.print(angle_target);
+        Serial.print(" Mapped Angle: ");
+        Serial.print(angle_target_body);
+        Serial.print(" Current Angle: ");
+        Serial.println(imu.angZ);
+        swivel.write(60);
+
+        // switch (course) {
+        //     case B:
+        //         turn_left(MIDDLE, 1.7*PI);
+        //         turn_complete = imu.angZ > angle_target_body; // - orientation_angle + 2 * PI;
+        //         break;
+        //     case A:
+        //         turn_left(MIDDLE, 1.7*PI);
+        //         turn_complete = imu.angZ > angle_target_body; // + orientation_angle;
+        //         break;
+        //} // end switch(course)
+        
+        // turn_complete = abs(angle_target_body - imu.angZ) < PI/16;
+        turn_complete = abs(imu.angZ) >= abs(angle_target_body);
+
         if (turn_complete) { 
             stop();
-            delay(1000);
+            Serial.println("DONE!");
             imu.reset_integrators();
-        }
-        turn_complete = false;  //now turn the offset
-        switch (course) {
-            case B:
+        } else{
+            if (angle_target_body < imu.angZ){
                 turn_right(MIDDLE, 1.7*PI);
-                turn_complete = abs(imu.angZ) > orientation_angle;
-                break;
-            case A:
+            }
+            else{
                 turn_left(MIDDLE, 1.7*PI);
-                turn_complete = abs(imu.angZ) > orientation_angle;
-                break;
-        } // end switch(course)
-        if (turn_complete) { 
-            stop();
-            delay(1000);
-            imu.calibrate();
-            wz = imu.gyroZ;
-            iwz = 0;
-            forward();
-            imu.reset_integrators();
-            gyro_controller_on = true;
-            timer.init();
-            timer.setInterval(40,controller);
-            state = driving_to_box;
-            Serial.println("Entering driving_to_box");
-            delay(3000);
-        } // end if turn_complete
+            }
+        }
+        // turn_complete = false;  //now turn the offset
+        // switch (course) {
+        //     case B:
+        //         turn_right(MIDDLE, 1.7*PI);
+        //         turn_complete = abs(imu.angZ) > orientation_angle;
+        //         break;
+        //     case A:
+        //         turn_left(MIDDLE, 1.7*PI);
+        //         turn_complete = abs(imu.angZ) > orientation_angle;
+        //         break;
+        // } // end switch(course)
+        // if (turn_complete) { 
+        //     stop();
+        //     delay(1000);
+        //     imu.calibrate();
+        //     wz = imu.gyroZ;
+        //     iwz = 0;
+        //     forward();
+        //     imu.reset_integrators();
+        //     gyro_controller_on = true;
+        //     timer.init();
+        //     timer.setInterval(40,controller);
+        //     state = driving_to_box;
+        //     Serial.println("Entering driving_to_box");
+        //     delay(1000);
+        // } // end if turn_complete
     } //end else
 }
 
@@ -369,13 +399,14 @@ void celebrating() {
     //end point / terminal state
 }
 
-float dw;
-float kp = 2.;
-float ki = 5.;
-float sign(float x) {x >= 0 ? 1. : -1.;}
+// float dw;
+// float kp = 2.;
+// float ki = 5.;
+// float sign(float x) {x >= 0 ? 1. : -1.;}
 void controller() {    
     wz = imu.gyroZ;
     iwz = imu.angZ;
     imu.update_integrator();
     update_ir_states();
+    ir.update(0);
 }

@@ -37,7 +37,7 @@ void IR_Beacon::reset(){
 }
 
 void IR_Beacon::update(float curr_ang){
-    static unsigned long last_check = 0;
+    static volatile unsigned long last_check = 0;
     if (millis() > last_check + IR_POLL_INT){
         last_check = millis();
         raw = analogRead(IR_BEACON);
@@ -53,7 +53,7 @@ void IR_Beacon::update(float curr_ang){
         // }
         digitalWrite(IR_RST, HIGH);
     }
-    else if (millis() > last_check){
+    else {
         digitalWrite(IR_RST, LOW);
     }
 }
