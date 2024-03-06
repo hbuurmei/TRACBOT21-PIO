@@ -138,8 +138,8 @@ void orienting(){
             imu.reset_integrators();
             gyro_controller_on = true;
             timer.init();
-    timer.setInterval(40,controller);
-    state = driving_to_box;
+            timer.setInterval(40,controller);
+            state = driving_to_box;
             Serial.println("Entering driving_to_box");
             delay(3000);
         } // end if turn_complete
