@@ -11,17 +11,11 @@
 
 class IR_Beacon{
     public:
-        float mav;
         int raw;
         int value;
-        int max;
-        float angle;
 
         void initialize();
-        void update(float curr_ang); 
-        void reset();
-    private:
-        float alpha = 0.1;
+        void update(); 
 };
 
 void IR_Beacon::initialize(){
@@ -31,12 +25,7 @@ void IR_Beacon::initialize(){
     analogReference(DEFAULT);
 }
 
-void IR_Beacon::reset(){
-    mav = 0;
-    max = 0;
-}
-
-void IR_Beacon::update(float curr_ang){
+void IR_Beacon::update(){
     static volatile unsigned long last_check = 0;
     if (millis() > last_check + IR_POLL_INT){
         last_check = millis();
@@ -46,11 +35,6 @@ void IR_Beacon::update(float curr_ang){
             IR_RAW_MIN, IR_RAW_MAX,
             0, 1023
         );
-        // mav = (alpha*value)+ (1.0-alpha) * mav;
-        // if (value > max){
-        //     max = value;
-        //     angle = curr_ang;
-        // }
         digitalWrite(IR_RST, HIGH);
     }
     else {

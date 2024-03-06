@@ -11,11 +11,12 @@
 #include <servo/servo.cpp>
 #include <button/button.cpp>
 #include <sensors/ir_beacon.cpp>
+
 ISR_Timer timer;
 IMU imu;
 IR_Beacon ir;
-// State functions
 
+// State functions
 void test_turn();
 
 void waiting_for_button();
@@ -38,47 +39,82 @@ void (*state) (void) = start;  // usually we would use waiting_for_button
 
 // Control functions
 void controller();
-static volatile float wz;
-static volatile float iwz;
-static bool gyro_controller_on = false;
+// static volatile float wz;
+// static volatile float iwz;
+// static bool gyro_controller_on = false;
 enum course_config {
     B,  // B --> 0
     A   // A --> 1
 };
 course_config course = A;
 
+/*
+Setup Initialization Function
+*/
 void setup() {
+    // Initialize Serial
     Serial.begin(9600);
     Serial.println("START");
+
+    // Configure Servos, set to defaults
+    swivel.attach(SWIVEL_SERVO_PIN);
+    swivel.write(60);
+    hatch.attach(HATCH_SERVO_PIN);
+    hatch.write(0);
+
+    // Stop any drive motor motion 
     stop();
+
+    // Set up buttons
+    button_setup();
+
+    // Initialize IMU, IR beacon sensor
     ir.initialize();
     imu.initialize();
     imu.calibrate();
-    swivel.attach(SWIVEL_SERVO_PIN);
-    // Move swivel to neutral position
-    swivel.write(60);
-    hatch.attach(HATCH_SERVO_PIN);
-    button_setup();
+    
+    // Begin intervals
     timer.init();
     timer.setInterval(40, controller);
 }
 
-volatile float wr_cmd;
+// volatile float wr_cmd;
+
+/*
+Main Loop Code
+*/
 void loop() {
     imu.update_measurement();
     state();
     timer.run();
 }
 
+/*
+STATE FUNCTIONS
+*/
+
+/*
+waiting_for_button()
+Default start state. If the button is pressed, set course to B, otherwise set course to A.
+Transition to: start
+*/
 void waiting_for_button() { // button for course selection
     // if button is pressed, choose course B, else choose course A
-    uint16_t t = millis();
+    unsigned long t = millis();
     while (millis() - t < 10000 && course == A) {
         bool button_read = digitalRead(buttonPin);  // 0 if button is pressed, 1 if not
         course = button_read ? A : B;
     }
     state = start;
 }
+
+/*
+start()
+Execute initial celebration. Wave the hatch servo. Phases:
+
+
+Transition to: orienting
+*/
 void start() {
     // Wave hatch servo at start, before loading balls, to meet performance requirement 2
     // hatch.write(HATCH_OPEN);
@@ -92,7 +128,7 @@ void start() {
     //Load balls during the 5s delay
     // IR sensor reorientation here (or as it's own state, then change the state transitions)
     imu.reset_integrators();
-    gyro_controller_on = true;
+    // gyro_controller_on = true;
 
     // ITimer1.init();
     // ITimer1.setFrequency(CONTROLLER_FREQ, controller);
@@ -100,44 +136,6 @@ void start() {
     // turn_left(MIDDLE, 1.5*PI);
     stop();
     state = orienting;
-}
-
-void test_turn(){
-    // a testing state for turning.
-    static int angle_target = 90;
-    // static float angle_target_body = float(map(angle_target, 0, 130, -90, 90)) * PI/180;
-    static float angle_target_body = float(angle_target) * PI/180 / 1.301;  
-    //1.301 is calibrated for 1.5*PI speed -- can find calibration levels using serial plotter for other speeds/turn types
-
-    static bool turn_complete = 0;
-    static bool flag = 0;
-
-    Serial.print(">Target:");
-    Serial.println(angle_target);
-    Serial.print(">Mapped:");
-    Serial.println(angle_target_body);
-    Serial.print(">Current:");
-    Serial.println(imu.angZ);
-    Serial.print(">FLAG:");
-    Serial.println(flag);
-
-    flag = 0;
-
-    turn_complete = abs(imu.angZ - angle_target_body) < PI/32;
-
-    if (turn_complete) { 
-        stop();
-        Serial.println("DONE!");
-        flag=1;
-        //imu.reset_integrators();
-    } else{
-        if (angle_target_body < imu.angZ){
-            turn_right(MIDDLE, 1.5*PI);
-        }
-        else{
-            turn_left(MIDDLE, 1.5*PI);
-        }
-    }
 }
 
 void orienting(){
@@ -217,7 +215,9 @@ void orienting(){
         if (turn_complete) { 
             stop();
             Serial.println("DONE!");
-
+            imu.reset_integrators();
+            forward();
+            state = driving_to_box;
             // state=driving_to_box;
             // imu.reset_integrators();
             // forward();
@@ -276,7 +276,7 @@ void driving_to_box() {
 }
 void aligning_with_gap() {
     if (millis() - time_box_reached > 500) {
-        gyro_controller_on = false;
+        // gyro_controller_on = false;
         stop();
         delay(1000);
         // imu.initialize();
@@ -313,11 +313,11 @@ void turning_to_gap() {
         delay(1000);
         imu.calibrate();
         imu.reset_integrators();
-        wz = imu.gyroZ;
-        iwz = 0;
+        // wz = imu.gyroZ;
+        // iwz = 0;
         reset_ir_triggers();
         forward();
-        gyro_controller_on = true;
+        // gyro_controller_on = true;
         state = driving_through_gap;
         Serial.println("Entering driving_through_gap");
         delay(3000);    
@@ -332,7 +332,7 @@ void driving_through_gap() {
         stop();
         delay(1000);
         imu.calibrate();
-        gyro_controller_on = false;
+        // gyro_controller_on = false;
         switch (course) {
             case B:
                 turn_right(FORWARD,2*PI);
@@ -367,11 +367,11 @@ void turning_to_contact_zone() {
         stop();
         delay(1000);
         imu.calibrate();
-        wz = imu.gyroZ;
-        iwz = 0;
+        // wz = imu.gyroZ;
+        // iwz = 0;
         forward();
         imu.reset_integrators();
-        gyro_controller_on = true;
+        // gyro_controller_on = true;
         state = driving_to_contact_zone;
         Serial.println("Entering driving_to_contact_zone");
         delay(3000);
@@ -380,7 +380,7 @@ void turning_to_contact_zone() {
 void driving_to_contact_zone() {
     // if (abs(imu.dist_rate) < 0.05) {
         //TO BE CONTINUED
-        gyro_controller_on = false;
+        // gyro_controller_on = false;
         stop();
         delay(200);
         imu.calibrate();
@@ -413,10 +413,10 @@ void turning_to_shooting_zone() {
         delay(200);
         imu.calibrate();
         imu.reset_integrators();
-        wz = imu.gyroZ;
-        iwz = 0;
+        // wz = imu.gyroZ;
+        // iwz = 0;
         forward();
-        gyro_controller_on = true;
+        // gyro_controller_on = true;
         state = driving_to_shooting_zone;
         Serial.println("Entering driving_to_shooting_zone");
         time_driving_to_shooting_zone = millis();
@@ -429,7 +429,7 @@ void driving_to_shooting_zone() {
     if (millis() - time_driving_to_shooting_zone > 6000) {
         stop();
         delay(3000);
-        gyro_controller_on = false;
+        // gyro_controller_on = false;
         switch (course) {
             case B:
                 // swivel.write(SWIVEL_RIGHT_ANGLE);
@@ -471,9 +471,51 @@ void celebrating() {
 // float ki = 5.;
 // float sign(float x) {x >= 0 ? 1. : -1.;}
 void controller() {    
-    wz = imu.gyroZ;
-    iwz = imu.angZ;
+    // wz = imu.gyroZ;
+    // iwz = imu.angZ;
     imu.update_integrator();
     update_ir_states();
-    ir.update(0);
+    ir.update();
+}
+
+
+/*
+TEST CODE AND GRAVEYARD
+*/
+void test_turn(){
+    // a testing state for turning.
+    static int angle_target = 90;
+    // static float angle_target_body = float(map(angle_target, 0, 130, -90, 90)) * PI/180;
+    static float angle_target_body = float(angle_target) * PI/180 / 1.301;  
+    //1.301 is calibrated for 1.5*PI speed -- can find calibration levels using serial plotter for other speeds/turn types
+
+    static bool turn_complete = 0;
+    static bool flag = 0;
+
+    Serial.print(">Target:");
+    Serial.println(angle_target);
+    Serial.print(">Mapped:");
+    Serial.println(angle_target_body);
+    Serial.print(">Current:");
+    Serial.println(imu.angZ);
+    Serial.print(">FLAG:");
+    Serial.println(flag);
+
+    flag = 0;
+
+    turn_complete = abs(imu.angZ - angle_target_body) < PI/32;
+
+    if (turn_complete) { 
+        stop();
+        Serial.println("DONE!");
+        flag=1;
+        //imu.reset_integrators();
+    } else{
+        if (angle_target_body < imu.angZ){
+            turn_right(MIDDLE, 1.5*PI);
+        }
+        else{
+            turn_left(MIDDLE, 1.5*PI);
+        }
+    }
 }
