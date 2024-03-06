@@ -149,10 +149,21 @@ void orienting(){
     static int servo_angle_deg = 0;
     static int angle_target = 0;
     static float angle_target_body = 0;
-    // static bool found_target = 0;
-    // static float orientation_angle = 66*PI/180; //FLAG: may need refining
+
     static int max_ir_reading = 0;
     static bool turn_complete = 0;
+
+    static float beacon_offset = 66*PI/180;
+    if (course == B){
+        beacon_offset *= -1;
+    }
+   
+    #define LEN_CONV 15
+    static int conv_weights[LEN_CONV] = {-10, -10, 1, 2, 2, 6, 6, 10, 6, 6, 2, 2, 1, -10, -10};
+    // static int conv_weights[LEN_CONV] = {0, 0, 1, 2, 2, 6, 6, 6, 6, 6, 2, 2, 1, 0, 0};
+    //static int conv_weights[LEN_CONV] = {5,5,5,5,5};
+    static int last_angles[LEN_CONV];
+    static int ir_readings[LEN_CONV];
 
     static unsigned long last_servo_move = 0;
     
@@ -161,15 +172,34 @@ void orienting(){
             last_servo_move = millis();
             swivel.write(servo_angle_deg);
             servo_angle_deg += swivel_interval;
-            Serial.print(">Angle: ");
-            Serial.println(servo_angle_deg);
-            Serial.print(">Reading: ");
-            Serial.println(ir.value);
-            if (ir.value > max_ir_reading){
-                max_ir_reading = ir.value;
-                angle_target = servo_angle_deg;
-                angle_target_body = float(map(angle_target, 0, 130, -90, 90)) * PI/180 / 1.301;
+            
+            // top hat convolve of last LEN_CONV values
+            int this_sum = 0;
+
+            for (int ii=LEN_CONV-1; ii>0; ii--){
+                ir_readings[ii] = ir_readings[ii-1];
+                last_angles[ii] = last_angles[ii-1];
+                this_sum += ir_readings[ii] * conv_weights[ii];
             }
+            ir_readings[0] = ir.value;
+            last_angles[0] = servo_angle_deg;
+            this_sum += ir_readings[0] * conv_weights[0];
+            this_sum /= LEN_CONV;
+
+            if (this_sum > max_ir_reading){
+                max_ir_reading = this_sum;
+                angle_target = last_angles[LEN_CONV/2]; // take middle of conv.
+                angle_target_body = (float(map(angle_target, 0, 130, -90, 90)) * PI/180 +beacon_offset)/ 1.301;
+            }
+
+            Serial.print(">ServoAngle: ");
+            Serial.println(servo_angle_deg);
+            Serial.print(">IRReading: ");
+            Serial.println(ir.value);
+            Serial.print(">ConvValue: ");
+            Serial.println(this_sum);
+            Serial.print(">TargetAngle: ");
+            Serial.println(angle_target);
         }
         imu.reset_integrators();
     }    
@@ -182,23 +212,16 @@ void orienting(){
         Serial.println(imu.angZ);
         swivel.write(60);
 
-        // switch (course) {
-        //     case B:
-        //         turn_left(MIDDLE, 1.7*PI);
-        //         turn_complete = imu.angZ > angle_target_body; // - orientation_angle + 2 * PI;
-        //         break;
-        //     case A:
-        //         turn_left(MIDDLE, 1.7*PI);
-        //         turn_complete = imu.angZ > angle_target_body; // + orientation_angle;
-        //         break;
-        //} // end switch(course)
-        
         turn_complete = abs(imu.angZ - angle_target_body) < PI/32;
-        // turn_complete = abs(imu.angZ) >= abs(angle_target_body);
 
         if (turn_complete) { 
             stop();
             Serial.println("DONE!");
+
+            // state=driving_to_box;
+            // imu.reset_integrators();
+            // forward();
+
         } else{
             if (angle_target_body < imu.angZ){
                 turn_right(MIDDLE, 1.5*PI);
