@@ -1,6 +1,6 @@
 #include <Servo.h>
-#define SWIVEL_SERVO_PIN        3
-#define HATCH_SERVO_PIN         5
+#define SWIVEL_SERVO_PIN        9
+#define HATCH_SERVO_PIN         10
 #define SWIVEL_LEFT_ANGLE       0
 #define SWIVEL_NEUTRAL_ANGLE    60
 #define SWIVEL_RIGHT_ANGLE      130
