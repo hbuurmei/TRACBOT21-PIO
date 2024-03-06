@@ -97,7 +97,7 @@ void start() {
     timer.setInterval(40,controller);
     ir.initialize();
 
-    turn_left(MIDDLE, 1.7*PI);
+    turn_left(MIDDLE, 1.5*PI);
     state = orienting;
 }
 
@@ -120,11 +120,11 @@ void orienting(){
         bool turn_complete = false;
         switch (course) {
             case B:
-                turn_left(MIDDLE, 1.7*PI);
+                turn_left(MIDDLE, 1.5*PI);
                 turn_complete = imu.angZ > angle_target; // - orientation_angle + 2 * PI;
                 break;
             case A:
-                turn_left(MIDDLE, 1.7*PI);
+                turn_left(MIDDLE, 1.5*PI);
                 turn_complete = imu.angZ > angle_target; // + orientation_angle;
                 break;
         } // end switch(course)
