@@ -2,6 +2,10 @@
 #define LEFT_90_TURN 85*PI/180
 #define RIGHT_90_TURN 82.5*PI/180
 
+#define TRIG_PIN 6
+#define ECHO_PIN 5
+const int inter_time = 40;
+
 #include <Arduino.h>
 #include <sensors/ir_line.cpp>
 #include <sensors/imu.cpp>
@@ -14,6 +18,7 @@ ISR_Timer timer;
 IMU imu;
 
 // State functions
+void orienting();
 void waiting_for_button();
 void start();
 void driving_to_box();
@@ -45,6 +50,8 @@ course_config course = A;
 void setup() {
     Serial.begin(9600);
     stop();
+    pinMode(TRIG_PIN, OUTPUT);
+    pinMode(ECHO_PIN, INPUT);
     imu.initialize();
     imu.calibrate();
     swivel.attach(SWIVEL_SERVO_PIN);
@@ -86,15 +93,128 @@ void start() {
     // IR sensor reorientation here (or as it's own state, then change the state transitions)
     imu.initialize();
     imu.calibrate();
-    forward();
+    imu.reset_integrators();
     gyro_controller_on = true;
     // ITimer1.init();
     // ITimer1.setFrequency(CONTROLLER_FREQ, controller);
     timer.init();
     timer.setInterval(40, controller);
-    state = driving_to_box;
-    Serial.println("Entering driving_to_box");
+    turn_left(MIDDLE, 1.7*PI);
+    state = orienting;
+    Serial.println("Entering orienting");
 }
+
+int8_t iteration = 0;
+void orienting(){
+    iteration++;
+    unsigned long duration;
+    static float distance;
+    static float min_distance = 150;
+    static float angle_target = 0;
+    static bool found_target = 0;
+    // static float orientation_angle = 66*PI/180; //FLAG: may need refining
+    // ir.update(imu.angZ);
+    if (iteration%2) {
+        digitalWrite(TRIG_PIN, HIGH);
+    }
+    // digitalWrite(TRIG_PIN, HIGH);
+    // delayMicroseconds(1000);
+    else{
+        digitalWrite(TRIG_PIN, LOW);
+        duration = pulseIn(ECHO_PIN, HIGH);
+        distance = (duration / 2.0) / 29.0;
+    }
+    // digitalWrite(TRIG_PIN, LOW);
+    // duration = pulseIn(ECHO_PIN, HIGH);
+    // distance = (duration / 2.0) / 29.0;
+    if (distance < min_distance){
+        min_distance = distance;
+        angle_target = imu.angZ;
+    }
+    if (!found_target){
+        if (imu.angZ > 2*PI){    //one full rotation, saving min reading as min_distance
+            found_target = 1;
+            stop();
+            delay(800);
+            imu.reset_integrators();
+            // delay(inter_time);
+            // Serial.println(imu.angZ);
+        } //now have saved angle at lowest seen distance
+    }
+    else{
+        Serial.println(angle_target);
+        stop();
+        delay(500);
+        imu.reset_integrators(); //idk if necessary, but should be at same orientation as start of turn    
+        turn_left(MIDDLE, 1.7*PI);
+        bool turn_complete = false;
+        turn_complete = imu.angZ >= angle_target; 
+        if (turn_complete) { 
+            stop();
+            delay(1000);
+            imu.reset_integrators();
+        }
+    }
+}
+
+
+//     if (!found_target){
+//         if (imu.angZ > 2*PI){
+//             stop();
+//             angle_target = ir.angle;
+//             found_target = 1;
+//             delay(800);
+//             imu.reset_integrators();
+//         }
+//     } // end if(!found_target)
+//     else{
+//         // turn to angle_target (facing beacon))
+//         bool turn_complete = false;
+//         switch (course) {
+//             case B:
+//                 turn_left(MIDDLE, 1.7*PI);
+//                 turn_complete = imu.angZ > angle_target; // - orientation_angle + 2 * PI;
+//                 break;
+//             case A:
+//                 turn_left(MIDDLE, 1.7*PI);
+//                 turn_complete = imu.angZ > angle_target; // + orientation_angle;
+//                 break;
+//         } // end switch(course)
+//         if (turn_complete) { 
+//             stop();
+//             delay(1000);
+//             imu.reset_integrators();
+//         }
+//         turn_complete = false;  //now turn the offset
+//         switch (course) {
+//             case B:
+//                 turn_right(MIDDLE, 1.7*PI);
+//                 turn_complete = abs(imu.angZ) > orientation_angle;
+//                 break;
+//             case A:
+//                 turn_left(MIDDLE, 1.7*PI);
+//                 turn_complete = abs(imu.angZ) > orientation_angle;
+//                 break;
+//         } // end switch(course)
+//         if (turn_complete) { 
+//             stop();
+//             delay(1000);
+//             imu.calibrate();
+//             wz = imu.gyroZ;
+//             iwz = 0;
+//             forward();
+//             imu.reset_integrators();
+//             gyro_controller_on = true;
+//             timer.init();
+//             timer.setInterval(40,controller);
+//             state = driving_to_box;
+//             Serial.println("Entering driving_to_box");
+//             delay(3000);
+//         } // end if turn_complete
+//     } //end else
+// }
+
+
 volatile unsigned long time_box_reached;
 void driving_to_box() {
     static volatile int left;
@@ -305,7 +425,7 @@ void celebrating() {
 float dw;
 float kp = 2.;
 float ki = 5.;
-float sign(float x) {x >= 0 ? 1. : -1.;}
+// float sign(float x) {x >= 0 ? 1. : -1.;}
 void controller() {    
     wz = imu.gyroZ;
     iwz = imu.angZ;
