@@ -43,14 +43,14 @@ void loop() {
 }
 
 void next_angle(){
-    if(imu.angZ >= angle_target){
-    //if (millis() > state_change + 1000){
+    //if(imu.angZ >= angle_target){
+    if (millis() > state_change + 500){
         state=take_measurement;
         stop();
         state_change= millis();
     }
     else{
-        turn_left(MIDDLE, 1.7*PI);
+       // turn_left(MIDDLE, 1.7*PI);
     }
 }
 

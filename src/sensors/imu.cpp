@@ -81,6 +81,14 @@ class IMU : public MPU6050 {
             float gyroX_sum = 0;
             float gyroY_sum = 0;
             float gyroZ_sum = 0;
+
+            accelX_bias = 0;
+            accelY_bias = 0;
+            accelZ_bias = 0;
+            gyroX_bias = 0;
+            gyroY_bias = 0;
+            gyroZ_bias = 0;
+
             for (int i = 0; i < samples; i++) {
                 update_measurement();
                 accelX_sum += accelX;

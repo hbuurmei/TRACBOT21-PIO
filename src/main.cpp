@@ -15,6 +15,9 @@ ISR_Timer timer;
 IMU imu;
 IR_Beacon ir;
 // State functions
+
+void test_turn();
+
 void waiting_for_button();
 void start();
 void orienting();
@@ -53,7 +56,7 @@ void setup() {
     imu.calibrate();
     swivel.attach(SWIVEL_SERVO_PIN);
     // Move swivel to neutral position
-    swivel.write(0);
+    swivel.write(60);
     hatch.attach(HATCH_SERVO_PIN);
     button_setup();
     timer.init();
@@ -88,8 +91,6 @@ void start() {
     // delay(5000);
     //Load balls during the 5s delay
     // IR sensor reorientation here (or as it's own state, then change the state transitions)
-    imu.initialize();
-    imu.calibrate();
     imu.reset_integrators();
     gyro_controller_on = true;
 
@@ -101,39 +102,83 @@ void start() {
     state = orienting;
 }
 
+void test_turn(){
+    // a testing state for turning.
+    static int angle_target = 90;
+    // static float angle_target_body = float(map(angle_target, 0, 130, -90, 90)) * PI/180;
+    static float angle_target_body = float(angle_target) * PI/180 / 1.301;  
+    //1.301 is calibrated for 1.5*PI speed -- can find calibration levels using serial plotter for other speeds/turn types
+
+    static bool turn_complete = 0;
+    static bool flag = 0;
+
+    Serial.print(">Target:");
+    Serial.println(angle_target);
+    Serial.print(">Mapped:");
+    Serial.println(angle_target_body);
+    Serial.print(">Current:");
+    Serial.println(imu.angZ);
+    Serial.print(">FLAG:");
+    Serial.println(flag);
+
+    flag = 0;
+
+    turn_complete = abs(imu.angZ - angle_target_body) < PI/32;
+
+    if (turn_complete) { 
+        stop();
+        Serial.println("DONE!");
+        flag=1;
+        //imu.reset_integrators();
+    } else{
+        if (angle_target_body < imu.angZ){
+            turn_right(MIDDLE, 1.5*PI);
+        }
+        else{
+            turn_left(MIDDLE, 1.5*PI);
+        }
+    }
+}
+
 void orienting(){
-    static float angle = 0;
-    static long angle_target = 0;
+    /*
+    - sweep 180 degrees with servo, measure maximum value & angle 
+    - if value not higher than some threshold (100 ?), turn 120 and repeat
+    - else, turn to angle of beacon, offset by value based on course A or course B
+    */
+    static int servo_angle_deg = 0;
+    static int angle_target = 0;
     static float angle_target_body = 0;
     // static bool found_target = 0;
-    static float orientation_angle = 66*PI/180; //FLAG: may need refining
-    static float max_ir_reading = 0;
+    // static float orientation_angle = 66*PI/180; //FLAG: may need refining
+    static int max_ir_reading = 0;
     static bool turn_complete = 0;
+
     static unsigned long last_servo_move = 0;
     
-    if (angle <= 130){
+    if (servo_angle_deg <= 130){
         if (millis()>last_servo_move+250){
             last_servo_move = millis();
-            swivel.write(angle);
-            angle += swivel_interval;
-            Serial.print("Angle: ");
-            Serial.print(angle);
-            Serial.print(" Reading: ");
+            swivel.write(servo_angle_deg);
+            servo_angle_deg += swivel_interval;
+            Serial.print(">Angle: ");
+            Serial.println(servo_angle_deg);
+            Serial.print(">Reading: ");
             Serial.println(ir.value);
             if (ir.value > max_ir_reading){
                 max_ir_reading = ir.value;
-                angle_target = angle;
-                angle_target_body = float(map(angle_target, 0, 130, -90, 90)) * PI/180;
+                angle_target = servo_angle_deg;
+                angle_target_body = float(map(angle_target, 0, 130, -90, 90)) * PI/180 / 1.301;
             }
         }
         imu.reset_integrators();
     }    
     else if(!turn_complete){
-        Serial.print("Target angle: ");
-        Serial.print(angle_target);
-        Serial.print(" Mapped Angle: ");
-        Serial.print(angle_target_body);
-        Serial.print(" Current Angle: ");
+        Serial.print(">Target:");
+        Serial.println(angle_target);
+        Serial.print(">Mapped:");
+        Serial.println(angle_target_body);
+        Serial.print(">Current:");
         Serial.println(imu.angZ);
         swivel.write(60);
 
@@ -148,19 +193,18 @@ void orienting(){
         //         break;
         //} // end switch(course)
         
-        // turn_complete = abs(angle_target_body - imu.angZ) < PI/16;
-        turn_complete = abs(imu.angZ) >= abs(angle_target_body);
+        turn_complete = abs(imu.angZ - angle_target_body) < PI/32;
+        // turn_complete = abs(imu.angZ) >= abs(angle_target_body);
 
         if (turn_complete) { 
             stop();
             Serial.println("DONE!");
-            imu.reset_integrators();
         } else{
             if (angle_target_body < imu.angZ){
-                turn_right(MIDDLE, 1.7*PI);
+                turn_right(MIDDLE, 1.5*PI);
             }
             else{
-                turn_left(MIDDLE, 1.7*PI);
+                turn_left(MIDDLE, 1.5*PI);
             }
         }
         // turn_complete = false;  //now turn the offset

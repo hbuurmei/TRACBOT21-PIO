@@ -4,7 +4,7 @@
 #define IR_RAW_MIN 561
 #define IR_RAW_MAX 1000
 
-#define IR_POLL_INT 100
+#define IR_POLL_INT 75
 #define IR_AV_LEN 10
 
 #include <Arduino.h>
