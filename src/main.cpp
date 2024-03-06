@@ -104,19 +104,19 @@ void start() {
 void orienting(){
     static float angle_target = 0;
     static bool found_target = 0;
-    static float orientation_angle = 66*PI/180; //may need refining
+    static float orientation_angle = 66*PI/180; //FLAG: may need refining
     ir.update(imu.angZ);
     if (!found_target){
         if (imu.angZ > 2*PI){
             stop();
             angle_target = ir.angle;
             found_target = 1;
-            delay(100);
+            delay(800);
             imu.reset_integrators();
         }
     } // end if(!found_target)
     else{
-        // turn to angle_target plus (or minus) 66 degrees
+        // turn to angle_target (facing beacon))
         bool turn_complete = false;
         switch (course) {
             case B:
@@ -126,6 +126,22 @@ void orienting(){
             case A:
                 turn_left(MIDDLE, 1.5*PI);
                 turn_complete = imu.angZ > angle_target; // + orientation_angle;
+                break;
+        } // end switch(course)
+        if (turn_complete) { 
+            stop();
+            delay(1000);
+            imu.reset_integrators();
+        }
+        turn_complete = false;  //now turn the offset
+        switch (course) {
+            case B:
+                turn_right(MIDDLE, 1.7*PI);
+                turn_complete = abs(imu.angZ) > orientation_angle;
+                break;
+            case A:
+                turn_left(MIDDLE, 1.7*PI);
+                turn_complete = abs(imu.angZ) > orientation_angle;
                 break;
         } // end switch(course)
         if (turn_complete) { 
