@@ -1,6 +1,6 @@
 // #define CONTROLLER_FREQ 25.  //unused
 #define LEFT_90_TURN 85*PI/180  //verified as 85
-#define RIGHT_90_TURN 72*PI/180   //verified as 82.5
+#define RIGHT_90_TURN 82.5*PI/180   //verified as 82.5
 #define swivel_interval 2    //2 degree turn intervals for now
 
 #include <Arduino.h>
@@ -240,38 +240,29 @@ void driving_to_box() {
     static volatile int left;
     static volatile int middle;
     static volatile int right;
-    // update_ir_states(); //even though this is in controller, would not trigger until I added it here
     left = ir_left_triggers;
     middle = ir_mid_triggers;
     right = ir_right_triggers;
     int8_t counter = min(left,min(right,middle));
-    // Serial.print("Left:");
-    // Serial.print(ir_left());
-    // Serial.print(",");
-    // Serial.print("Mid:");
-    // Serial.print(ir_middle());
-    // Serial.print(",");
-    // Serial.print("Right:");
-    // Serial.println(ir_right());
-    Serial.println(counter);
-    if (counter >= 1) {
+
+    // if (counter >= 1) {
+    if (1){
         state = aligning_with_gap;
         Serial.println("Entering aligning_with_gap");
         time_box_reached = millis();
     }
 }
 void aligning_with_gap() {
-    if (millis() - time_box_reached > 500) {
+    if (millis() - time_box_reached > 1000) {
         stop();
         forward_controller = 0;
         imu.reset_integrators();
-        // Conisder if we should add this. might be more robust without?
         switch (course) {
             case B:
-                turn_left(FORWARD,2*PI);
+                turn_left(MIDDLE, 1.5*PI);
                 break;
             case A:
-                turn_right(FORWARD,2*PI);
+                turn_right(MIDDLE, 1.5*PI);
                 break;
         }
         state = turning_to_gap;
@@ -279,35 +270,53 @@ void aligning_with_gap() {
     }
 }
 
+#define DEBUG_TURNING_TO_GAP 1
+unsigned long time_passed_gap;
 void turning_to_gap() {
-    static volatile float angZ;
     static volatile bool turn_complete = false;
-    angZ = imu.angZ;
+    if (DEBUG_TURNING_TO_GAP){
+        Serial.print(">angZ:");
+        Serial.println(imu.angZ);
+    }
 
-    Serial.println(angZ);
     switch (course) {
         case B:
-            turn_complete = abs(angZ) >= abs(LEFT_90_TURN);
+            turn_complete = abs(imu.angZ - PI/2 / 1.3) < PI/32;
+            if (DEBUG_TURNING_TO_GAP){
+                Serial.print(">AngTarget:");
+                Serial.println(PI/2 / 1.3);
+            }
             break;
         case A:
-            turn_complete = abs(angZ) >= abs(RIGHT_90_TURN);
+            turn_complete = abs(imu.angZ - (-PI/2 / 1.3)) < PI/32;
+            if (DEBUG_TURNING_TO_GAP){
+                Serial.print(">AngTarget:");
+                Serial.println(-PI/2 / 1.3);
+            }
             break;
     }
+
     if (turn_complete) {
         stop();
         imu.reset_integrators();
         forward_controller = 1;
         forward();
-        delay(3500);    //flag (keep for now, ideally make better)
+
+        time_passed_gap = millis();
+
         state = driving_through_gap;
         Serial.println("Entering driving_through_gap");
     }
 }
-int time_line_reached;
+
+unsigned long time_line_reached;
 void driving_through_gap() {
     // int8_t counter = min(ir_left_triggers,min(ir_right_triggers,ir_mid_triggers));
     // Serial.print(counter);
     // if (counter >= 3) {
+    if (millis() < time_passed_gap + 3500){
+        return;
+    }
     reset_ir_triggers();
     // Serial.println(max(ir_left_on_line,max(ir_mid_on_line,ir_right_on_line)));
     if(ir_left()<IR_MIN || ir_right()<IR_MIN || ir_middle()<IR_MIN) {
@@ -317,10 +326,10 @@ void driving_through_gap() {
 
         switch (course) {
             case B:
-                turn_right(FORWARD,2*PI);
+                turn_right(MIDDLE,1.5*PI);
                 break;
             case A:
-                turn_left(FORWARD,2*PI);
+                turn_left(MIDDLE,1.5*PI);
                 break;
         }
         imu.reset_integrators();
@@ -329,77 +338,81 @@ void driving_through_gap() {
         time_line_reached = millis();
     }
 }
+
+unsigned long time_driving_to_contact_zone;
 void turning_to_contact_zone() {
-    // static int angZ = 0;
-    // static unsigned long prev_time = 0;
-    // unsigned long curr_time = millis();
-    // angZ += imu.gyroZ * (curr_time - prev_time)/1000.;
-    // prev_time = curr_time;
+
     bool turn_complete = false;
 
-    Serial.println(imu.angZ);
     switch (course) {
         case B:
-            turn_complete = abs(imu.angZ) > RIGHT_90_TURN;
+            // turn_complete = abs(imu.angZ) > RIGHT_90_TURN;
+            turn_complete = abs(imu.angZ - (-PI/2 / 1.3)) < PI/32;
+
             break;
         case A:
-            turn_complete = abs(imu.angZ) > PI/2; //LEFT_90_TURN;
+            turn_complete = abs(imu.angZ - PI/2 / 1.3) < PI/32;
             break;
     }
     if (turn_complete || millis() - time_line_reached > 3000) { //90 deg turn left
         stop();
-        delay(1000);
+
         imu.reset_integrators();
-        // forward_controller = 1;
-        // forward();
-        line_follow();  //flag -- line follow preliminary attempt
-        imu.reset_integrators();
+        forward_controller = 1;
+        forward();
+        //line_follow();  //flag -- line follow preliminary attempt
+
         state = driving_to_contact_zone;
         Serial.println("Entering driving_to_contact_zone");
-        delay(2500);
+        time_driving_to_contact_zone = millis();
     }
 }
+
+bool dtcz_stopped = 0;
+unsigned long dtcz_time_stopped = 0;
 void driving_to_contact_zone() {   //FLAG pretty good til here, line tracking worked surprisingly well for course A
-    // if (abs(imu.dist_rate) < 0.05) {
+    if( !dtcz_stopped){
+        if(millis() > time_driving_to_contact_zone + 1000){
         //TO BE CONTINUED
+            stop();
+            forward_controller = 0;
+            dtcz_stopped = 1;
+            dtcz_time_stopped = millis();
+            backward();
+        }
+    }
+    else if (millis() > dtcz_time_stopped + 500){
         stop();
-        forward_controller = 0;
-        delay(200);
-        // imu.calibrate();
         switch (course) {
             case B:
                 turn_left(BACKWARD,2*PI);
                 break;
             case A:
                 // turn_right(BACKWARD,2*PI);
-                backward();
-                delay(100);
                 turn_right(MIDDLE,1.7*PI); //fffflag -- currently testing this, course A good up to post contact zone turn
                 break;
         }
         imu.reset_integrators();
         state = turning_to_shooting_zone;
         Serial.println("Entering turning_to_shooting_zone");
-    // }
+    }
 }
+
 volatile unsigned long time_driving_to_shooting_zone;
 void turning_to_shooting_zone() {
     bool turn_complete = false;
     switch (course) {
         case B:
-            turn_complete = abs(imu.angZ) > PI/2/1.301; //abs(LEFT_90_TURN);
+            turn_complete = abs(imu.angZ - (PI/2 / 1.3)) < PI/32;
             break;
         case A:
-            turn_complete = abs(imu.angZ) > PI/2/1.301; //abs(RIGHT_90_TURN);
+            turn_complete = abs(imu.angZ - (-PI/2 / 1.3)) < PI/32;
             break;
     }
     if (turn_complete) {
         stop();
-        delay(200);
-        // imu.calibrate();
+
         imu.reset_integrators();
-        // wz = imu.gyroZ;
-        // iwz = 0;
         forward_controller = 1;
         forward();
         state = driving_to_shooting_zone;
@@ -414,13 +427,13 @@ void driving_to_shooting_zone() {
     if (millis() - time_driving_to_shooting_zone > 6000) {
         stop();
         forward_controller = 0;
-        delay(3000);
+
         switch (course) {
             case B:
-                // swivel.write(SWIVEL_RIGHT_ANGLE);
+                swivel.write(SWIVEL_RIGHT_ANGLE);
                 break;
             case A:
-                // swivel.write(SWIVEL_LEFT_ANGLE);
+                swivel.write(SWIVEL_LEFT_ANGLE);
                 break;
         }
         time_swivel_turn = millis();
@@ -430,32 +443,35 @@ void driving_to_shooting_zone() {
 void turning_swivel() {
     if (millis() - time_swivel_turn > 3000) {
         state = dropping_balls;
-        // hatch.write(HATCH_OPEN);
+        hatch.write(HATCH_OPEN);
     }
 }
 void dropping_balls() { //temporary -- change when we add ramp climbing
     delay(2000);
     state = celebrating;
-    // hatch.write(HATCH_CLOSED);
+    hatch.write(HATCH_CLOSED);
 }
 
 void celebrating() {   
-    // delay(300);
-    // hatch.write(HATCH_OPEN);
-    // delay(300);
-    // hatch.write(HATCH_CLOSED);
-    // delay(300);
-    // hatch.write(HATCH_OPEN);
-    // delay(300);
-    // hatch.write(HATCH_CLOSED);
+    delay(300);
+    hatch.write(HATCH_OPEN);
+    delay(300);
+    hatch.write(HATCH_CLOSED);
+    delay(300);
+    hatch.write(HATCH_OPEN);
+    delay(300);
+    hatch.write(HATCH_CLOSED);
     //end point / terminal state
 }
 
 float dw;
 float wr_cmd;
+float wl_cmd;
 float kp = 2.;
 float ki = 5.;
 // float sign(float x) {x >= 0 ? 1. : -1.;}
+
+#define DEBUG_CONTROLLER 0
 void controller() {    
 
     imu.update_integrator();
@@ -464,13 +480,22 @@ void controller() {
 
     if(forward_controller){
         dw = -(kp*imu.gyroZ + ki*imu.angZ)*BASE_WIDTH/WHEEL_RADIUS;
-        wr_cmd = dw + DEFAULT_MOTOR_SPEED;
-        analogWrite(EnA, wr_cmd/2 * RPS_TO_ANALOG);
-        analogWrite(EnB, -wr_cmd/2 * RPS_TO_ANALOG);
+        wr_cmd = DEFAULT_MOTOR_SPEED + dw/2;
+        wl_cmd = DEFAULT_MOTOR_SPEED - dw/2;
+        analogWrite(EnA, wr_cmd * RPS_TO_ANALOG);
+        analogWrite(EnB, wl_cmd * RPS_TO_ANALOG);
+        if (DEBUG_CONTROLLER){
+            Serial.print(">imu.gyroZ:");
+            Serial.println(imu.gyroZ);
+            Serial.print(">imu.angZ:");
+            Serial.println(imu.angZ);
+            Serial.print(">wr_cmd:");
+            Serial.println(wr_cmd);
+            Serial.print(">wl_cmd:");
+            Serial.println(wl_cmd);
+        }
     }
 }
-    
-
 
 /*
 TEST CODE AND GRAVEYARD
