@@ -4,6 +4,10 @@
 #define DO_ORIENT 1     // 1 for real run
 #define DO_TEST 0       // 0 for real run
 
+#define DEBUG_ORIENTING 0
+#define DEBUG_CONTROLLER 0
+#define DEBUG_EXECUTE_TURN 0
+
 #define LEFT_90_TURN 85*PI/180  //verified as 85
 #define RIGHT_90_TURN 82.5*PI/180   //verified as 82.5
 #define swivel_interval 2    //2 degree turn intervals for now
@@ -46,6 +50,9 @@ void (*state) (void) = start;  // usually we would use waiting_for_button
 // Control functions
 void controller();
 bool execute_turn(float target, float speed = 1.5*PI, float tolerance = PI/64);
+
+struct result {bool done_sweep; bool found_target; float angle_target_body;};
+auto find_beacon_relative(bool rst = 0) -> result;
 
 static volatile bool forward_controller = 0; //idea: set to 1 whenever trying to drive straight, 0 otherwise, logic in controller
 
@@ -157,6 +164,7 @@ void start() {
     }
     else if (DO_ORIENT){
         state = orienting;
+        find_beacon_relative(1);
         Serial.println("entering orienting");
     } else{
         state = driving_to_box;
@@ -171,23 +179,49 @@ void start() {
 Orient the robot with the line trace exiting the starting box.
 End State: The robot is moving forward() towards the edge of the box
 */
-#define DEBUG_ORIENTING 1
 void orienting(){
     /*
     - sweep 180 degrees with servo, measure maximum value & angle 
     - if value not higher than some threshold (100 ?), turn 120 and repeat
     - else, turn to angle of beacon, offset by value based on course A or course B
     */
-    static int servo_angle_deg = 0;
-    static int angle_target = 0;
-    static float angle_target_body = 0;
-
-    static int max_ir_reading = 0;
-
+    static result res;
     static float beacon_offset = 66*PI/180;
     if (course == B){
         beacon_offset *= -1;
     }
+
+    if (res.done_sweep){
+        if (res.found_target){
+            swivel.write(60);
+            bool turn_complete = execute_turn(res.angle_target_body + beacon_offset);
+            if (turn_complete){
+                stop();
+                imu.reset_integrators();
+                state = driving_to_box;
+                time_state_change = millis();
+                forward();
+                forward_controller = 1;
+                Serial.println("Entering driving to box");
+                reset_ir_triggers();
+            }
+        }
+        else{
+            // implement 120 deg turn, continue orienting 
+        }
+    }
+    else{
+        res = find_beacon_relative();
+    } //end else
+}
+
+#define SERVO_SWEEP 130
+auto find_beacon_relative(bool rst) -> result{
+    static int servo_angle_deg = 0; // current angle of servo
+    static int angle_target = 0; // estimated servo angle to target
+    static float angle_target_body = 0; // angle to target in body frame
+
+    static int max_ir_reading = 0;
 
     #define LEN_CONV 15
     static int conv_weights[LEN_CONV] = {-10, -10, 1, 2, 2, 6, 6, 10, 6, 6, 2, 2, 1, -10, -10};
@@ -197,16 +231,24 @@ void orienting(){
     static int ir_readings[LEN_CONV];
 
     static unsigned long last_servo_move = 0;
-    
-    if (servo_angle_deg <= 130){
+
+    if (rst){
+        servo_angle_deg = 0;
+        angle_target = 0;
+        angle_target_body = 0;
+        for (int ii = 0; ii < LEN_CONV; ii++){
+            last_angles[ii] = 0;
+            ir_readings[ii] = 0;
+        }
+    }
+
+    if (servo_angle_deg <= SERVO_SWEEP){
         if (millis()>last_servo_move+250){
             last_servo_move = millis();
             swivel.write(servo_angle_deg);
             servo_angle_deg += swivel_interval;
             
-            // top hat convolve of last LEN_CONV values
             int this_sum = 0;
-
             for (int ii=LEN_CONV-1; ii>0; ii--){
                 ir_readings[ii] = ir_readings[ii-1];
                 last_angles[ii] = last_angles[ii-1];
@@ -220,9 +262,7 @@ void orienting(){
             if (this_sum > max_ir_reading){
                 max_ir_reading = this_sum;
                 angle_target = last_angles[LEN_CONV/2]; // take middle of conv.
-                angle_target_body = (float(map(angle_target, 0, 130, -90, 90)) * PI/180 + beacon_offset);
-                Serial.print("NEW ANGLE TARGET BODY ");
-                Serial.println(angle_target_body);
+                angle_target_body = (float(map(angle_target, 0, 130, -90, 90)) * PI/180);
             }
             if (DEBUG_ORIENTING){
                 Serial.print(">ServoAngle: ");
@@ -235,21 +275,10 @@ void orienting(){
                 Serial.println(angle_target);
             }
         }
-    }    
-    else{
-        swivel.write(60);
-        bool turn_complete = execute_turn(angle_target_body);
-        if (turn_complete) { 
-            stop();
-            imu.reset_integrators();
-            state = driving_to_box;
-            time_state_change = millis();
-            forward();
-            forward_controller = 1;
-            Serial.println("Entering driving to box");
-            reset_ir_triggers();
-        }
-    } //end else
+    } else{
+        return result{1, 1, angle_target_body};
+    }
+    return result{0, 0, 0};
 }
 
 /*
@@ -435,7 +464,6 @@ volatile float kp = 2.;
 volatile float ki = 5.;
 // float sign(float x) {x >= 0 ? 1. : -1.;}
 
-#define DEBUG_CONTROLLER 0
 void controller() {    
     // Update sensors
     imu.update_integrator();  // IMU integrator
@@ -452,7 +480,6 @@ void controller() {
     }
 }
 
-#define DEBUG_EXECUTE_TURN 1
 #define TURN_ADJUSTMENT_FACTOR 1.57
 #define N_CONSECUTIVE_COMPLETES 5
 // #define TURN_ADJUSTMENT_FACTOR 1
