@@ -1,7 +1,7 @@
 
 // CONFIGURATION -- ALL SHOULD BE 1 FOR REAL RUNS
 #define DO_CELEBRATE 0  // 1 for real run
-#define DO_ORIENT 1     // 1 for real run
+#define DO_ORIENT 0     // 1 for real run
 #define DO_TEST 0       // 0 for real run
 
 #define LEFT_90_TURN 85*PI/180  //verified as 85
@@ -45,7 +45,7 @@ void (*state) (void) = start;  // usually we would use waiting_for_button
 
 // Control functions
 void controller();
-bool execute_turn(float target, float speed = 1.5*PI, float tolerance = PI/64);
+bool execute_turn(float target, float speed = 1.5*PI, float tolerance = .0436);//PI/64);
 
 static volatile bool forward_controller = 0; //idea: set to 1 whenever trying to drive straight, 0 otherwise, logic in controller
 
@@ -53,7 +53,7 @@ enum course_config {
     B,  // B --> 0
     A   // A --> 1
 };
-course_config course = B;
+course_config course = A;
 
 // Dictates behavior of the controller function.
 enum control_state{
@@ -88,7 +88,6 @@ void setup() {
 
     // Initialize IMU, IR beacon sensor
     ir.initialize();
-
     imu.initialize();
     imu.calibrate();
     
@@ -316,8 +315,15 @@ void driving_through_gap() {
         reset_ir_triggers();
         return;
     }
+    
 
     if(ir_left_triggers || ir_mid_triggers || ir_right_triggers){
+        Serial.print("left: ");
+        Serial.println(ir_left_triggers);
+        Serial.print("middle: ");
+        Serial.println(ir_mid_triggers);
+        Serial.print("right ");
+        Serial.println(ir_right_triggers);
         stop();
         forward_controller = 0;
         imu.reset_integrators();
@@ -351,7 +357,7 @@ void turning_to_contact_zone() {
 
 */
 void driving_to_contact_zone() {  
-    if(millis() > time_state_change + 5000){
+    if(millis() > time_state_change + 3500){ //reduced from 5 to 3.5 seconds
         stop();
         forward_controller = 0;
         time_state_change = millis();
@@ -362,7 +368,7 @@ void driving_to_contact_zone() {
 
 void retreating_from_contact_zone(){
     backward();
-    if(millis() > time_state_change + 500){
+    if(millis() > time_state_change + 350){ //reduced from 500 ms to 350 ms
         stop();
         time_state_change = millis();
         state = turning_to_shooting_zone;
@@ -372,6 +378,8 @@ void retreating_from_contact_zone(){
 
 void turning_to_shooting_zone() {
     bool turn_complete = execute_turn(course == A ? -PI/2 : PI/2);
+    //underturn for shooting zone to make up for right forward bias
+    // bool turn_complete = execute_turn(course == A ? -88*PI/180 : 88*PI/180);
 
     if (turn_complete) {
         stop();
@@ -383,7 +391,7 @@ void turning_to_shooting_zone() {
 }
 
 void driving_to_shooting_zone() {
-    forward();
+    forward_3pi();
     forward_controller = 1;
 
     if (millis() - time_state_change > 6000) {
@@ -454,7 +462,7 @@ void controller() {
 
 #define DEBUG_EXECUTE_TURN 1
 #define TURN_ADJUSTMENT_FACTOR 1.57
-#define N_CONSECUTIVE_COMPLETES 5
+#define N_CONSECUTIVE_COMPLETES 10
 // #define TURN_ADJUSTMENT_FACTOR 1
 bool execute_turn(float raw_target, float speed, float tolerance){
     static bool last_states[N_CONSECUTIVE_COMPLETES];

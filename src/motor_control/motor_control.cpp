@@ -52,6 +52,12 @@ void forward(float left_speed = DEFAULT_MOTOR_SPEED, float right_speed = DEFAULT
     left_forward(left_speed); 
     right_forward(right_speed);
 }
+//3*PI speed forward to hopefully go straighter
+void forward_3pi(float left_speed = 3*PI, float right_speed = 3*PI) {
+    left_forward(left_speed); 
+    right_forward(right_speed);
+}
+
 void backward(float left_speed = DEFAULT_MOTOR_SPEED,float right_speed = DEFAULT_MOTOR_SPEED) {
     left_backward(left_speed); 
     right_backward(right_speed);

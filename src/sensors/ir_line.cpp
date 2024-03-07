@@ -7,8 +7,12 @@
 // #define IR_MAX       600
 
 // DAYTIME VALUES
-#define IR_MIN      550
-#define IR_MAX      950
+// #define IR_MIN      550
+// #define IR_MAX      950
+
+//3/7 course A 3:00 PM calibration
+#define IR_MIN      385
+#define IR_MAX      650
 
 #include <Arduino.h>
 
