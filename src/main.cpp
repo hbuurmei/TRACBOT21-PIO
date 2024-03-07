@@ -1,7 +1,7 @@
 
 // CONFIGURATION -- ALL SHOULD BE 1 FOR REAL RUNS
 #define DO_CELEBRATE 0
-#define DO_ORIENT 0
+#define DO_ORIENT 1
 
 #define LEFT_90_TURN 85*PI/180  //verified as 85
 #define RIGHT_90_TURN 82.5*PI/180   //verified as 82.5
@@ -44,8 +44,7 @@ void (*state) (void) = start;  // usually we would use waiting_for_button
 
 // Control functions
 void controller();
-void set_turn_target(float target);
-bool execute_turn(float speed = 1.5*PI, float tolerance = PI/64);
+bool execute_turn(float target, float speed = 1.5*PI, float tolerance = PI/64);
 
 static volatile bool forward_controller = 0; //idea: set to 1 whenever trying to drive straight, 0 otherwise, logic in controller
 
@@ -53,7 +52,7 @@ enum course_config {
     B,  // B --> 0
     A   // A --> 1
 };
-course_config course = A;
+course_config course = B;
 
 // Dictates behavior of the controller function.
 enum control_state{
@@ -62,8 +61,6 @@ enum control_state{
     CONTROL_TURN
 };
 control_state controller_mode = CONTROL_OFF;
-
-float controller_turn_target = 0;
 
 unsigned long time_state_change = 0;
 
@@ -78,8 +75,9 @@ void setup() {
     // Configure Servos, set to defaults
     swivel.attach(SWIVEL_SERVO_PIN);
     swivel.write(60);
+
     hatch.attach(HATCH_SERVO_PIN);
-    hatch.write(0);
+    hatch.write(HATCH_CLOSED);
 
     // Stop any drive motor motion 
     stop();
@@ -101,18 +99,10 @@ void setup() {
 /*
 Main Loop Code
 */
-#define DEBUG_EXECUTE_TURN 1
 void loop() {
     imu.update_measurement();
     state();
     timer.run();
-
-    if (DEBUG_EXECUTE_TURN){
-        Serial.print(">angZ:");
-        Serial.println(imu.angZ);
-        Serial.print(">controller_turn_target:");
-        Serial.println(controller_turn_target);
-    }
 }
 
 /*
@@ -142,12 +132,16 @@ Transition to: orienting
 void start() {
     // Wave hatch servo at start, before loading balls, to meet performance requirement 2
     if (DO_CELEBRATE){
+        Serial.println("HATCH OPEN");
         hatch.write(HATCH_OPEN);
         delay(500);
+        Serial.println("HATCH CLOSED");
         hatch.write(HATCH_CLOSED);
         delay(500);
+        Serial.println("HATCH OPEN");
         hatch.write(HATCH_OPEN);
         delay(500);
+        Serial.println("HATCH CLOSED");
         hatch.write(HATCH_CLOSED);
         delay(5000);
     }
@@ -162,9 +156,10 @@ void start() {
     } else{
         state = driving_to_box;
         Serial.println("entering DRIVING_TO_BOX");
+        forward();
+        forward_controller = 1;
     }
-
-    state = test_state_init;
+    
 }
 
 /*
@@ -221,7 +216,8 @@ void orienting(){
                 max_ir_reading = this_sum;
                 angle_target = last_angles[LEN_CONV/2]; // take middle of conv.
                 angle_target_body = (float(map(angle_target, 0, 130, -90, 90)) * PI/180 + beacon_offset);
-                set_turn_target(angle_target_body);
+                Serial.print("NEW ANGLE TARGET BODY ");
+                Serial.println(angle_target_body);
             }
             if (DEBUG_ORIENTING){
                 Serial.print(">ServoAngle: ");
@@ -237,11 +233,16 @@ void orienting(){
     }    
     else{
         swivel.write(60);
-        bool turn_complete = execute_turn();
+        bool turn_complete = execute_turn(angle_target_body);
         if (turn_complete) { 
             stop();
-            // imu.reset_integrators();
-            // state = ;
+            imu.reset_integrators();
+            state = driving_to_box;
+            time_state_change = millis();
+            forward();
+            forward_controller = 1;
+            Serial.println("Entering driving to box");
+            reset_ir_triggers();
         }
     } //end else
 }
@@ -252,13 +253,16 @@ When any line sensor crosses a line, transition to aligning_with_gap.
 End State: The robot is moving forward() out of the box.
 */
 void driving_to_box() {
-    forward(); // TODO: note this won't work with current controller architecture;
-    forward_controller = 1;
+    Serial.print(ir_left_triggers);
+    Serial.print(ir_mid_triggers);
+    Serial.println(ir_right_triggers);
 
     if (ir_left_triggers || ir_right_triggers || ir_mid_triggers){
         state = aligning_with_gap;
         Serial.println("Entering aligning_with_gap");
         time_state_change = millis();
+        forward();
+        forward_controller = 1;
     }
 }
 
@@ -268,9 +272,6 @@ When 1000ms elapses, the robot should stop and transition to turning_to_gap.
 End State: The robot is stopped, aligned with the middle of the gap.
 */
 void aligning_with_gap() {
-    forward();
-    forward_controller = 1;
-
     if (millis() - time_state_change > 1000) {
         stop();
         forward_controller = 0;
@@ -280,19 +281,12 @@ void aligning_with_gap() {
     }
 }
 
-
 /*
 Robot is turning towards the gap.
 Once the robot has turned 90degrees, robot stops and transitions to driving_through_gap.
 */
 void turning_to_gap() {
-    if (course == A){
-        set_turn_target(-PI/2); // 90deg RIGHT turn 
-    } else{
-        set_turn_target(PI/2); // 90deg LEFT turn
-    }
-
-    bool turn_complete = execute_turn();
+    bool turn_complete = execute_turn(course == A ? -PI/2+0.1 : PI/2-0.1);
 
     if (turn_complete) {
         stop();
@@ -300,6 +294,9 @@ void turning_to_gap() {
         time_state_change = millis();
         state = driving_through_gap;
         Serial.println("Entering driving_through_gap");
+
+        forward();
+        forward_controller = 1;
     }
 }
 
@@ -309,10 +306,8 @@ Robot will not pay attention to any lines until 3.5s have elapsed. Once 3.5s hav
 for lines. Once line crossed, transition to turning_to_contact_zone.
 */
 void driving_through_gap() {
-    forward();
-    forward_controller = 1;
     // Do nothing until 3.5s elapsed
-    if (millis() < time_state_change + 3500){
+    if (millis() < time_state_change + 3000){
         reset_ir_triggers();
         return;
     }
@@ -320,16 +315,8 @@ void driving_through_gap() {
     if(ir_left_triggers || ir_mid_triggers || ir_right_triggers){
         stop();
         forward_controller = 0;
-
-        switch (course) {
-            case B:
-                turn_right(MIDDLE,1.5*PI);
-                break;
-            case A:
-                turn_left(MIDDLE,1.5*PI);
-                break;
-        }
         imu.reset_integrators();
+
         state = turning_to_contact_zone;
         Serial.println("Entering turning_to_contact_zone");
         time_state_change = millis();
@@ -340,32 +327,26 @@ void driving_through_gap() {
 Turn towards contact zone
 */
 void turning_to_contact_zone() {
-    if (course == A){
-        set_turn_target(-PI/2); // 90deg RIGHT turn 
-    } else{
-        set_turn_target(PI/2); // 90deg LEFT turn
-    }
-
-    bool turn_complete = execute_turn();
+    bool turn_complete = execute_turn(course==A ? PI/2 : -PI/2);
 
     if (turn_complete) { 
         stop();
         imu.reset_integrators();
-        //line_follow();  //flag -- line follow preliminary attempt
 
         state = driving_to_contact_zone;
         Serial.println("Entering driving_to_contact_zone");
         time_state_change = millis();
+
+        forward_controller = 1;
+        forward();
     }
 }
 
 /*
 
 */
-void driving_to_contact_zone() {   //FLAG pretty good til here, line tracking worked surprisingly well for course A
-    forward_controller = 1;
-    forward();
-    if(millis() > time_state_change + 1000){
+void driving_to_contact_zone() {  
+    if(millis() > time_state_change + 5000){
         stop();
         forward_controller = 0;
         time_state_change = millis();
@@ -385,12 +366,7 @@ void retreating_from_contact_zone(){
 }
 
 void turning_to_shooting_zone() {
-    if (course == A){
-        set_turn_target(-PI/2); // 90deg RIGHT turn 
-    } else{
-        set_turn_target(PI/2); // 90deg LEFT turn
-    }
-    bool turn_complete = execute_turn();
+    bool turn_complete = execute_turn(course == A ? -PI/2 : PI/2);
 
     if (turn_complete) {
         stop();
@@ -428,7 +404,7 @@ void turning_swivel() {
     }
 }
 
-void dropping_balls() { //temporary -- change when we add ramp climbing
+void dropping_balls() { 
     hatch.write(HATCH_OPEN);
     delay(2000);
     state = celebrating;
@@ -447,11 +423,11 @@ void celebrating() {
     //end point / terminal state
 }
 
-float dw;
-float wr_cmd;
-float wl_cmd;
-float kp = 2.;
-float ki = 5.;
+volatile float dw;
+volatile int wr_cmd;
+volatile int wl_cmd;
+volatile float kp = 2.;
+volatile float ki = 5.;
 // float sign(float x) {x >= 0 ? 1. : -1.;}
 
 #define DEBUG_CONTROLLER 0
@@ -471,31 +447,50 @@ void controller() {
     }
 }
 
-#define TURN_ADJUSTMENT_FACTOR 1.57;
-void set_turn_target(float target){
-    controller_turn_target = target / TURN_ADJUSTMENT_FACTOR;
-}
-
+#define DEBUG_EXECUTE_TURN 1
+#define TURN_ADJUSTMENT_FACTOR 1.57
+#define N_CONSECUTIVE_COMPLETES 5
 // #define TURN_ADJUSTMENT_FACTOR 1
-bool execute_turn(float speed, float tolerance){
-    bool turn_complete = abs(imu.angZ - controller_turn_target) < tolerance / TURN_ADJUSTMENT_FACTOR;
+bool execute_turn(float raw_target, float speed, float tolerance){
+    static bool last_states[N_CONSECUTIVE_COMPLETES];
+
+    float target = raw_target / TURN_ADJUSTMENT_FACTOR; 
+    bool turn_complete = abs(imu.angZ - target) < tolerance / TURN_ADJUSTMENT_FACTOR;
+
+    int sum = 0;
+    for (int ii=N_CONSECUTIVE_COMPLETES-1; ii>0; ii--){
+        last_states[ii] = last_states[ii-1];
+        sum += last_states[ii];
+    }
+    last_states[0] = turn_complete;
+    sum += turn_complete;
+
     if (turn_complete){
         stop();
     }
     else{
-        if(imu.angZ > controller_turn_target){
+        if(imu.angZ > target){
             turn_right(MIDDLE, speed);
         }
         else{
             turn_left(MIDDLE, speed);
         }
     }
-    return turn_complete;
+
+    if (DEBUG_EXECUTE_TURN){
+        Serial.print(">angZ:");
+        Serial.println(imu.angZ);
+        Serial.print(">raw_target:");
+        Serial.println(raw_target);
+        Serial.print(">adj_target:");
+        Serial.println(target);
+        Serial.print(">cons_comp:");
+        Serial.println(sum);
+    }
+    return sum == N_CONSECUTIVE_COMPLETES;
 }
 
-
 void test_state_init(){
-    set_turn_target(PI/2);
     imu.calibrate();
     imu.reset_integrators();
     state = test_state;
@@ -503,13 +498,11 @@ void test_state_init(){
 
 unsigned long last_turn_complete = 0;
 void test_state(){
-    static int ii = 0;
-    bool turn_complete = execute_turn();
-    if (turn_complete && (millis() - last_turn_complete > 5000)){
-        set_turn_target(PI/4*(ii%8));
-        ii += 1;
-        last_turn_complete = millis();
-    }
+    // static int ii = 0;
+    static float turn_target = PI/2;
+    static bool turn_complete = 0;
+
+    turn_complete = execute_turn(turn_target);
 
     Serial.print(">turn_complete:");
     Serial.println(turn_complete);

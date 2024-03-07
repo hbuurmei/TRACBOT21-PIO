@@ -1,9 +1,15 @@
 #define IR_RIGHT    A0
 #define IR_MID      A1
 #define IR_LEFT     A2
-#define IR_THRESHOLD 600 //550
-#define IR_MIN       250 //300
-#define IR_MAX       600 //550
+
+// EVENING VALUES 
+// #define IR_MIN       250 
+// #define IR_MAX       600
+
+// DAYTIME VALUES
+#define IR_MIN      550
+#define IR_MAX      950
+
 #include <Arduino.h>
 
 static volatile bool ir_left_on_line = false;
@@ -35,5 +41,3 @@ void reset_ir_triggers() {
     ir_mid_triggers = 0;
     ir_right_triggers = 0;
 }
-
-bool line_detected(uint8_t ir_sensor) {return analogRead(ir_sensor) < IR_THRESHOLD;}

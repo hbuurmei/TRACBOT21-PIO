@@ -16,6 +16,8 @@ void setup() {
 }
 
 void loop() {
+    update_ir_states();
+
     Serial.print("Left:");
     Serial.print(ir_left());
     Serial.print(",");
@@ -23,7 +25,16 @@ void loop() {
     Serial.print(ir_middle());
     Serial.print(",");
     Serial.print("Right:");
-    Serial.println(ir_right());
+    Serial.print(ir_right());
+
+    Serial.print(" dLeft:");
+    Serial.print(ir_left_triggers);
+    Serial.print(",");
+    Serial.print(" dMid:");
+    Serial.print(ir_mid_triggers);
+    Serial.print(",");
+    Serial.print(" dRight:");
+    Serial.println(ir_right_triggers);
 
     // Serial.print("Left:");
     // Serial.print(line_detected(IR_LEFT));

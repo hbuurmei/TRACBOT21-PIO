@@ -11,7 +11,27 @@ void setup() {
     // analogWrite(SERVO_CTRL_PIN,255);
     
     my_servo.attach(SERVO_CTRL_PIN);
-    my_servo.write(75);
+    my_servo.write(0);
+    delay(500);
+    my_servo.write(90);
+    delay(500);
+    my_servo.write(0);
+    delay(500);
+    my_servo.write(90);
+    delay(500);
+    my_servo.write(0);
+    delay(500);
+    my_servo.write(90);
+    delay(500);
+    my_servo.write(0);
+    delay(500);
+    my_servo.write(90);
+    delay(500);
+    my_servo.write(0);
+    delay(500);
+    my_servo.write(90);
+    delay(500);
+    my_servo.write(0);
     
 }
 
