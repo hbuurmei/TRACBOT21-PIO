@@ -1,7 +1,7 @@
 
 // CONFIGURATION -- ALL SHOULD BE 1 FOR REAL RUNS
 #define DO_CELEBRATE 0
-#define DO_ORIENT 1 
+#define DO_ORIENT 0
 
 #define LEFT_90_TURN 85*PI/180  //verified as 85
 #define RIGHT_90_TURN 82.5*PI/180   //verified as 82.5
@@ -45,7 +45,7 @@ void (*state) (void) = start;  // usually we would use waiting_for_button
 // Control functions
 void controller();
 void set_turn_target(float target);
-bool execute_turn(float speed = 1.5*PI, float tolerance = PI/32);
+bool execute_turn(float speed = 1.5*PI, float tolerance = PI/64);
 
 static volatile bool forward_controller = 0; //idea: set to 1 whenever trying to drive straight, 0 otherwise, logic in controller
 
@@ -163,6 +163,8 @@ void start() {
         state = driving_to_box;
         Serial.println("entering DRIVING_TO_BOX");
     }
+
+    state = test_state_init;
 }
 
 /*
@@ -476,7 +478,7 @@ void set_turn_target(float target){
 
 // #define TURN_ADJUSTMENT_FACTOR 1
 bool execute_turn(float speed, float tolerance){
-    bool turn_complete = abs(imu.angZ - controller_turn_target) < tolerance;
+    bool turn_complete = abs(imu.angZ - controller_turn_target) < tolerance / TURN_ADJUSTMENT_FACTOR;
     if (turn_complete){
         stop();
     }
