@@ -1,7 +1,8 @@
 
 // CONFIGURATION -- ALL SHOULD BE 1 FOR REAL RUNS
-#define DO_CELEBRATE 0
-#define DO_ORIENT 1
+#define DO_CELEBRATE 0  // 1 for real run
+#define DO_ORIENT 1     // 1 for real run
+#define DO_TEST 0       // 0 for real run
 
 #define LEFT_90_TURN 85*PI/180  //verified as 85
 #define RIGHT_90_TURN 82.5*PI/180   //verified as 82.5
@@ -150,7 +151,11 @@ void start() {
 
     // Reset integrator and move to orientation phase.
     imu.reset_integrators();
-    if (DO_ORIENT){
+    if (DO_TEST){
+        state = test_state_init;
+        Serial.println("entering TEST");
+    }
+    else if (DO_ORIENT){
         state = orienting;
         Serial.println("entering orienting");
     } else{
@@ -286,7 +291,7 @@ Robot is turning towards the gap.
 Once the robot has turned 90degrees, robot stops and transitions to driving_through_gap.
 */
 void turning_to_gap() {
-    bool turn_complete = execute_turn(course == A ? -PI/2+0.1 : PI/2-0.1);
+    bool turn_complete = execute_turn(course == A ? -PI/2 + PI/16 : PI/2 - PI/16);
 
     if (turn_complete) {
         stop();
@@ -499,7 +504,7 @@ void test_state_init(){
 unsigned long last_turn_complete = 0;
 void test_state(){
     // static int ii = 0;
-    static float turn_target = PI/2;
+    static float turn_target = PI/4;
     static bool turn_complete = 0;
 
     turn_complete = execute_turn(turn_target);
