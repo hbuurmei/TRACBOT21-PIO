@@ -1,9 +1,9 @@
 #define IR_RIGHT    A0
 #define IR_MID      A1
 #define IR_LEFT     A2
-#define IR_THRESHOLD 550
-#define IR_MIN       300
-#define IR_MAX       550
+#define IR_THRESHOLD 600 //550
+#define IR_MIN       250 //300
+#define IR_MAX       600 //550
 #include <Arduino.h>
 
 static volatile bool ir_left_on_line = false;

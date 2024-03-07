@@ -4,7 +4,7 @@
 #define IR_LEFT     A2
 
 // Tune the values below
-#define threshold 350
+#define threshold 250  //350
 #define TURN_SPEED_INCREMENT 0.5*PI  // rad/s
 
 // RIGHT MOTOR
@@ -14,10 +14,10 @@
 // LEFT MOTOR
 #define IN3     8
 #define IN4     7
-#define EnB     6
+#define EnB     3
 #include <Arduino.h>
 // #include <motor_control/motor_control.h>
-#define DEFAULT_MOTOR_SPEED 2.5*PI // rad/s
+#define DEFAULT_MOTOR_SPEED 2*PI // rad/s
 #define MAX_MOTOR_SPEED 10.472 // rad/s
 #define RPS_TO_ANALOG 256 / MAX_MOTOR_SPEED
 #define WHEEL_RADIUS 0.042 // metets

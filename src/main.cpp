@@ -1,10 +1,10 @@
-#define CONTROLLER_FREQ 25.
-#define LEFT_90_TURN 85*PI/180
-#define RIGHT_90_TURN 82.5*PI/180
+// #define CONTROLLER_FREQ 25.  //unused
+#define LEFT_90_TURN 85*PI/180  //verified as 85
+#define RIGHT_90_TURN 72*PI/180   //verified as 82.5
 #define swivel_interval 2    //2 degree turn intervals for now
 
 #include <Arduino.h>
-#include <sensors/ir_line.cpp>
+// #include <sensors/ir_line.cpp>   //commented out bc now included in motor_control for line follow implementation
 #include <sensors/imu.cpp>
 #include <ISR_Timer.h>
 #include <motor_control/motor_control.cpp>
@@ -39,9 +39,8 @@ void (*state) (void) = start;  // usually we would use waiting_for_button
 
 // Control functions
 void controller();
-// static volatile float wz;
-// static volatile float iwz;
-// static bool gyro_controller_on = false;
+
+static bool forward_controller = 0; //idea: set to 1 whenever trying to drive straight, 0 otherwise, logic in controller
 enum course_config {
     B,  // B --> 0
     A   // A --> 1
@@ -128,14 +127,20 @@ void start() {
     //Load balls during the 5s delay
     // IR sensor reorientation here (or as it's own state, then change the state transitions)
     imu.reset_integrators();
-    // gyro_controller_on = true;
 
     // ITimer1.init();
     // ITimer1.setFrequency(CONTROLLER_FREQ, controller);
 
     // turn_left(MIDDLE, 1.5*PI);
     stop();
-    state = orienting;
+    // state = orienting;
+
+    //flag: turn testing, remove and restore old state transition later
+    forward_controller = 1;
+    forward();
+    imu.reset_integrators();
+    state = driving_to_box;
+    Serial.println("entering DRIVING_TO_BOX");
 }
 
 void orienting(){
@@ -159,7 +164,7 @@ void orienting(){
     #define LEN_CONV 15
     static int conv_weights[LEN_CONV] = {-10, -10, 1, 2, 2, 6, 6, 10, 6, 6, 2, 2, 1, -10, -10};
     // static int conv_weights[LEN_CONV] = {0, 0, 1, 2, 2, 6, 6, 6, 6, 6, 2, 2, 1, 0, 0};
-    //static int conv_weights[LEN_CONV] = {5,5,5,5,5};
+    // static int conv_weights[LEN_CONV] = {5,5,5,5,5};
     static int last_angles[LEN_CONV];
     static int ir_readings[LEN_CONV];
 
@@ -218,9 +223,6 @@ void orienting(){
             imu.reset_integrators();
             forward();
             state = driving_to_box;
-            // state=driving_to_box;
-            // imu.reset_integrators();
-            // forward();
 
         } else{
             if (angle_target_body < imu.angZ){
@@ -230,32 +232,6 @@ void orienting(){
                 turn_left(MIDDLE, 1.5*PI);
             }
         }
-        // turn_complete = false;  //now turn the offset
-        // switch (course) {
-        //     case B:
-        //         turn_right(MIDDLE, 1.7*PI);
-        //         turn_complete = abs(imu.angZ) > orientation_angle;
-        //         break;
-        //     case A:
-        //         turn_left(MIDDLE, 1.7*PI);
-        //         turn_complete = abs(imu.angZ) > orientation_angle;
-        //         break;
-        // } // end switch(course)
-        // if (turn_complete) { 
-        //     stop();
-        //     delay(1000);
-        //     imu.calibrate();
-        //     wz = imu.gyroZ;
-        //     iwz = 0;
-        //     forward();
-        //     imu.reset_integrators();
-        //     gyro_controller_on = true;
-        //     timer.init();
-        //     timer.setInterval(40,controller);
-        //     state = driving_to_box;
-        //     Serial.println("Entering driving_to_box");
-        //     delay(1000);
-        // } // end if turn_complete
     } //end else
 }
 
@@ -264,10 +240,20 @@ void driving_to_box() {
     static volatile int left;
     static volatile int middle;
     static volatile int right;
+    // update_ir_states(); //even though this is in controller, would not trigger until I added it here
     left = ir_left_triggers;
     middle = ir_mid_triggers;
     right = ir_right_triggers;
     int8_t counter = min(left,min(right,middle));
+    // Serial.print("Left:");
+    // Serial.print(ir_left());
+    // Serial.print(",");
+    // Serial.print("Mid:");
+    // Serial.print(ir_middle());
+    // Serial.print(",");
+    // Serial.print("Right:");
+    // Serial.println(ir_right());
+    Serial.println(counter);
     if (counter >= 1) {
         state = aligning_with_gap;
         Serial.println("Entering aligning_with_gap");
@@ -276,11 +262,9 @@ void driving_to_box() {
 }
 void aligning_with_gap() {
     if (millis() - time_box_reached > 500) {
-        // gyro_controller_on = false;
         stop();
-        delay(1000);
-        // imu.initialize();
-        imu.calibrate();
+        forward_controller = 0;
+        imu.reset_integrators();
         // Conisder if we should add this. might be more robust without?
         switch (course) {
             case B:
@@ -290,49 +274,47 @@ void aligning_with_gap() {
                 turn_right(FORWARD,2*PI);
                 break;
         }
-        imu.reset_integrators();
         state = turning_to_gap;
         Serial.println("Entering turning_to_gap");
     }
 }
+
 void turning_to_gap() {
     static volatile float angZ;
     static volatile bool turn_complete = false;
     angZ = imu.angZ;
+
     Serial.println(angZ);
     switch (course) {
         case B:
-            turn_complete = angZ >= RIGHT_90_TURN;
+            turn_complete = abs(angZ) >= abs(LEFT_90_TURN);
             break;
         case A:
-            turn_complete = angZ <= -LEFT_90_TURN;
+            turn_complete = abs(angZ) >= abs(RIGHT_90_TURN);
             break;
     }
     if (turn_complete) {
         stop();
-        delay(1000);
-        imu.calibrate();
         imu.reset_integrators();
-        // wz = imu.gyroZ;
-        // iwz = 0;
-        reset_ir_triggers();
+        forward_controller = 1;
         forward();
-        // gyro_controller_on = true;
+        delay(3500);    //flag (keep for now, ideally make better)
         state = driving_through_gap;
         Serial.println("Entering driving_through_gap");
-        delay(3000);    
     }
 }
 int time_line_reached;
 void driving_through_gap() {
-    int8_t counter = min(ir_left_triggers,min(ir_right_triggers,ir_mid_triggers));
+    // int8_t counter = min(ir_left_triggers,min(ir_right_triggers,ir_mid_triggers));
     // Serial.print(counter);
     // if (counter >= 3) {
-    if(ir_left_on_line || ir_mid_on_line || ir_right_on_line) {
+    reset_ir_triggers();
+    // Serial.println(max(ir_left_on_line,max(ir_mid_on_line,ir_right_on_line)));
+    if(ir_left()<IR_MIN || ir_right()<IR_MIN || ir_middle()<IR_MIN) {
+    // if(ir_left_on_line || ir_mid_on_line || ir_right_on_line) {
         stop();
-        delay(1000);
-        imu.calibrate();
-        // gyro_controller_on = false;
+        forward_controller = 0;
+
         switch (course) {
             case B:
                 turn_right(FORWARD,2*PI);
@@ -354,45 +336,48 @@ void turning_to_contact_zone() {
     // angZ += imu.gyroZ * (curr_time - prev_time)/1000.;
     // prev_time = curr_time;
     bool turn_complete = false;
-    // Serial.println(imu.angZ);
+
+    Serial.println(imu.angZ);
     switch (course) {
         case B:
-            turn_complete = imu.angZ < -PI/2;
+            turn_complete = abs(imu.angZ) > RIGHT_90_TURN;
             break;
         case A:
-            turn_complete = imu.angZ > PI/2;
+            turn_complete = abs(imu.angZ) > PI/2; //LEFT_90_TURN;
             break;
     }
-    if (turn_complete || millis() - time_line_reached > 5000) { //90 deg turn left
+    if (turn_complete || millis() - time_line_reached > 3000) { //90 deg turn left
         stop();
         delay(1000);
-        imu.calibrate();
-        // wz = imu.gyroZ;
-        // iwz = 0;
-        forward();
         imu.reset_integrators();
-        // gyro_controller_on = true;
+        // forward_controller = 1;
+        // forward();
+        line_follow();  //flag -- line follow preliminary attempt
+        imu.reset_integrators();
         state = driving_to_contact_zone;
         Serial.println("Entering driving_to_contact_zone");
-        delay(3000);
+        delay(2500);
     }
 }
-void driving_to_contact_zone() {
+void driving_to_contact_zone() {   //FLAG pretty good til here, line tracking worked surprisingly well for course A
     // if (abs(imu.dist_rate) < 0.05) {
         //TO BE CONTINUED
-        // gyro_controller_on = false;
         stop();
+        forward_controller = 0;
         delay(200);
-        imu.calibrate();
-        imu.reset_integrators();
+        // imu.calibrate();
         switch (course) {
             case B:
                 turn_left(BACKWARD,2*PI);
                 break;
             case A:
-                turn_right(BACKWARD,2*PI);
+                // turn_right(BACKWARD,2*PI);
+                backward();
+                delay(100);
+                turn_right(MIDDLE,1.7*PI); //fffflag -- currently testing this, course A good up to post contact zone turn
                 break;
         }
+        imu.reset_integrators();
         state = turning_to_shooting_zone;
         Serial.println("Entering turning_to_shooting_zone");
     // }
@@ -402,21 +387,21 @@ void turning_to_shooting_zone() {
     bool turn_complete = false;
     switch (course) {
         case B:
-            turn_complete = imu.angZ > PI/2;
+            turn_complete = abs(imu.angZ) > PI/2/1.301; //abs(LEFT_90_TURN);
             break;
         case A:
-            turn_complete = imu.angZ < -PI/2;
+            turn_complete = abs(imu.angZ) > PI/2/1.301; //abs(RIGHT_90_TURN);
             break;
     }
     if (turn_complete) {
         stop();
         delay(200);
-        imu.calibrate();
+        // imu.calibrate();
         imu.reset_integrators();
         // wz = imu.gyroZ;
         // iwz = 0;
+        forward_controller = 1;
         forward();
-        // gyro_controller_on = true;
         state = driving_to_shooting_zone;
         Serial.println("Entering driving_to_shooting_zone");
         time_driving_to_shooting_zone = millis();
@@ -428,8 +413,8 @@ volatile unsigned long time_swivel_turn;
 void driving_to_shooting_zone() {
     if (millis() - time_driving_to_shooting_zone > 6000) {
         stop();
+        forward_controller = 0;
         delay(3000);
-        // gyro_controller_on = false;
         switch (course) {
             case B:
                 // swivel.write(SWIVEL_RIGHT_ANGLE);
@@ -466,17 +451,25 @@ void celebrating() {
     //end point / terminal state
 }
 
-// float dw;
-// float kp = 2.;
-// float ki = 5.;
+float dw;
+float wr_cmd;
+float kp = 2.;
+float ki = 5.;
 // float sign(float x) {x >= 0 ? 1. : -1.;}
 void controller() {    
-    // wz = imu.gyroZ;
-    // iwz = imu.angZ;
+
     imu.update_integrator();
-    update_ir_states();
-    ir.update();
+    update_ir_states(); //black tape ir sensors
+    ir.update();        //beacon IR
+
+    if(forward_controller){
+        dw = -(kp*imu.gyroZ + ki*imu.angZ)*BASE_WIDTH/WHEEL_RADIUS;
+        wr_cmd = dw + DEFAULT_MOTOR_SPEED;
+        analogWrite(EnA, wr_cmd/2 * RPS_TO_ANALOG);
+        analogWrite(EnB, -wr_cmd/2 * RPS_TO_ANALOG);
+    }
 }
+    
 
 
 /*
