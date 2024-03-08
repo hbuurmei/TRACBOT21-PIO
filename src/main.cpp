@@ -4,11 +4,12 @@
 #define DO_ORIENT 1     // 1 for real run
 #define DO_TEST 0       // 0 for real run
 
-#define DEBUG_GENERAL 1
-#define DEBUG_ORIENTING 1
+#define DEBUG_GENERAL 0
+#define DEBUG_ORIENTING 0
 #define DEBUG_EXECUTE_TURN 0
 #define DEBUG_DRIVING_TO_BOX 0
 #define turn_testing  0
+#define use_turn_pauses 0
 
 enum course_config {
     B,  // B --> 0
@@ -60,7 +61,9 @@ void test_state_init();
 void test_state();
 void reversing_to_contact_zone();
 void drive_straight();
-void pause();   //pause between turning and driving straight (or really anything)
+void pause_forward();   //pause between turning and driving straight (or really anything)
+void pause_right();
+void pause_left();
 void idle();
 void test_turns();
 void do_nothing();
@@ -218,7 +221,7 @@ void orienting(){
                 stop();
                 imu.reset_integrators();
                 state_after_pause = driving_to_box;
-                state = pause;
+                state = pause_forward;
                 time_state_change = millis();
                 if (DEBUG_GENERAL) {Serial.println("Entering driving to box");}
                 reset_ir_triggers();
@@ -239,11 +242,14 @@ When any line sensor crosses a line, transition to aligning_with_gap.
 End State: The robot is moving forward() out of the box.
 */
 void driving_to_box() {
-    if (1){
+    if (DEBUG_GENERAL){
         Serial.print(ir_left_triggers);
         Serial.print(ir_mid_triggers);
         Serial.println(ir_right_triggers);
     }
+    //FLAG test if this fixes the starting forward issue
+    forward();
+    imu.reset_integrators();
 
     if (ir_left_triggers || ir_right_triggers || ir_mid_triggers){
         state = aligning_with_gap;
@@ -267,14 +273,15 @@ void aligning_with_gap() {
         imu.reset_integrators();
         state = turning_to_gap;
         time_state_change = millis();
-        switch (course) {
-        case B:
-            turn_left(MIDDLE);
-            break;
-        case A:
-            turn_right(MIDDLE);
-            break;
-        }
+        
+        // switch (course) {
+        // case B:
+        //     turn_left(MIDDLE);
+        //     break;
+        // case A:
+        //     turn_right(MIDDLE);
+        //     break;
+        // }
         if (DEBUG_GENERAL) {Serial.println("Entering turning_to_gap");}
     }
 }
@@ -289,12 +296,12 @@ void turning_to_gap() {
     if (turn_complete) {
         stop();
         imu.reset_integrators();
-        // state = pause;
-        // state_after_pause = driving_through_gap;
-        state = driving_through_gap;
-        forward();
+        state = pause_forward;
+        state_after_pause = driving_through_gap;
+        // state = driving_through_gap;
+        // forward();
         time_state_change = millis();
-        forward_controller = 1;
+        // forward_controller = 1;
         if (DEBUG_GENERAL) {Serial.println("Entering driving_through_gap");}
     }
 }
@@ -306,10 +313,12 @@ for lines. Once line crossed, transition to turning_to_contact_zone.
 */
 void driving_through_gap() {
     // Do nothing until 3s elapsed
-    Serial.println("line sensors inactive");
-    if (millis() < time_state_change + 2000){ //FLAG this value needs tuning
-        reset_ir_triggers();
+
+    if (millis() - time_state_change >= 3000){ //FLAG this value needs tuning
+        Serial.println("ir sensors should be triggering");
         if(ir_left_triggers || ir_mid_triggers || ir_right_triggers){
+            Serial.println("line sensors active");
+
             if (DEBUG_GENERAL) {Serial.print("left: ");
                 Serial.println(ir_left_triggers);
                 Serial.print("middle: ");
@@ -334,29 +343,9 @@ void driving_through_gap() {
             time_state_change = millis();
         }
     }
-    
-    
-    // if (millis() < time_state_change + 3000){
-    //     reset_ir_triggers();
-    //     return;
-    // }
-    
-    // if(ir_left_triggers || ir_mid_triggers || ir_right_triggers){
-    //     if (DEBUG_GENERAL) {Serial.print("left: ");
-    //         Serial.println(ir_left_triggers);
-    //         Serial.print("middle: ");
-    //         Serial.println(ir_mid_triggers);
-    //         Serial.print("right ");
-    //         Serial.println(ir_right_triggers);
-    //     }
-    //     stop();
-    //     forward_controller = 0;
-    //     imu.reset_integrators();
-
-    //     state = turning_to_contact_zone;
-    //     if (DEBUG_GENERAL) {Serial.println("Entering turning_to_contact_zone");}
-    //     time_state_change = millis();
-    // }
+    else{
+        reset_ir_triggers();
+    }
 }
 
 /*
@@ -373,7 +362,7 @@ void turning_to_contact_zone() {
         forward();
         time_state_change = millis();
         forward_controller = 1;
-        // state = pause;
+        // state = pause_forward;
         if (DEBUG_GENERAL) {Serial.println("Entering driving_to_contact_zone");}
         
 
@@ -487,10 +476,30 @@ void celebrating() {
 FLOW CONTROL AND MOTION FUNCTIONS
 */
 
-void pause(){
-    if(millis()-time_state_change >= 2000){
+void pause_forward(){
+    if(millis()-time_state_change >= 1000){
         forward();
         forward_controller = 1;
+        imu.reset_integrators();
+        time_state_change = millis();
+        state = state_after_pause;
+        if (DEBUG_GENERAL) {Serial.println("Entering NEXT STAGE AFTER PAUSE");}
+    }
+}
+void pause_right(){
+    if(millis()-time_state_change >= 1000){
+        forward_controller = 0;
+        turn_right(MIDDLE);
+        imu.reset_integrators();
+        time_state_change = millis();
+        state = state_after_pause;
+        if (DEBUG_GENERAL) {Serial.println("Entering NEXT STAGE AFTER PAUSE");}
+    }
+}
+void pause_left(){
+    if(millis()-time_state_change >= 1000){
+        forward_controller = 0;
+        turn_left(MIDDLE);
         imu.reset_integrators();
         time_state_change = millis();
         state = state_after_pause;
