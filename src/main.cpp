@@ -1,12 +1,18 @@
 
 // CONFIGURATION -- ALL SHOULD BE 1 FOR REAL RUNS
 #define DO_CELEBRATE 0  // 1 for real run
-#define DO_ORIENT 0     // 1 for real run
+#define DO_ORIENT 1     // 1 for real run
 #define DO_TEST 0       // 0 for real run
 
 #define DEBUG_ORIENTING 0
 #define DEBUG_CONTROLLER 0
 #define DEBUG_EXECUTE_TURN 0
+
+enum course_config {
+    B,  // B --> 0
+    A   // A --> 1
+};
+course_config course = A;
 
 #define LEFT_90_TURN 85*PI/180  //verified as 85
 #define RIGHT_90_TURN 82.5*PI/180   //verified as 82.5
@@ -49,18 +55,12 @@ void (*state) (void) = start;  // usually we would use waiting_for_button
 
 // Control functions
 void controller();
-bool execute_turn(float target, float speed = 1.5*PI, float tolerance = .0436);//PI/64);
+bool execute_turn(float target, float speed = 1.7*PI, float tolerance = .0436);//PI/64);
 
 struct result {bool done_sweep; bool found_target; float angle_target_body;};
 auto find_beacon_relative(bool rst = 0) -> result;
 
 static volatile bool forward_controller = 0; //idea: set to 1 whenever trying to drive straight, 0 otherwise, logic in controller
-
-enum course_config {
-    B,  // B --> 0
-    A   // A --> 1
-};
-course_config course = A;
 
 // Dictates behavior of the controller function.
 enum control_state{
@@ -139,26 +139,22 @@ Transition to: orienting
 void start() {
     // Wave hatch servo at start, before loading balls, to meet performance requirement 2
     if (DO_CELEBRATE){
-        Serial.println("HATCH OPEN");
-        hatch.write(HATCH_OPEN);
-        delay(500);
-        Serial.println("HATCH CLOSED");
-        hatch.write(HATCH_CLOSED);
-        delay(500);
-        Serial.println("HATCH OPEN");
-        hatch.write(HATCH_OPEN);
-        delay(500);
-        Serial.println("HATCH CLOSED");
-        hatch.write(HATCH_CLOSED);
-        delay(5000);
+        swivel.write(SWIVEL_LEFT_ANGLE);
+        delay(2000);
+        swivel.write(SWIVEL_NEUTRAL_ANGLE);
+        delay(2000);
+        swivel.write(SWIVEL_RIGHT_ANGLE);
+        delay(2000);
+        swivel.write(SWIVEL_NEUTRAL_ANGLE);
+        delay(1000);
     }
     
-    //Load balls during the 5s delay
-
     // Reset integrator and move to orientation phase.
     imu.reset_integrators();
     if (DO_TEST){
-        state = test_state_init;
+        // state = test_state_init;
+        state = turning_swivel;
+        time_state_change = millis();
         Serial.println("entering TEST");
     }
     else if (DO_ORIENT){
@@ -178,6 +174,8 @@ void start() {
 Orient the robot with the line trace exiting the starting box.
 End State: The robot is moving forward() towards the edge of the box
 */
+#define BEACON_OFFSET 66*PI/180
+
 void orienting(){
     /*
     - sweep 180 degrees with servo, measure maximum value & angle 
@@ -185,15 +183,10 @@ void orienting(){
     - else, turn to angle of beacon, offset by value based on course A or course B
     */
     static result res;
-    static float beacon_offset = 66*PI/180;
-    if (course == B){
-        beacon_offset *= -1;
-    }
-
     if (res.done_sweep){
         if (res.found_target){
             swivel.write(60);
-            bool turn_complete = execute_turn(res.angle_target_body + beacon_offset);
+            bool turn_complete = execute_turn(res.angle_target_body + (course == A ? BEACON_OFFSET : -BEACON_OFFSET));
             if (turn_complete){
                 stop();
                 imu.reset_integrators();
@@ -319,7 +312,7 @@ Robot is turning towards the gap.
 Once the robot has turned 90degrees, robot stops and transitions to driving_through_gap.
 */
 void turning_to_gap() {
-    bool turn_complete = execute_turn(course == A ? -PI/2 + PI/16 : PI/2 - PI/16);
+    bool turn_complete = execute_turn(course == A ? -PI/2: PI/2);
 
     if (turn_complete) {
         stop();
@@ -493,13 +486,26 @@ void controller() {
 // #define TURN_ADJUSTMENT_FACTOR 1
 bool execute_turn(float raw_target, float speed, float tolerance){
     static bool last_states[N_CONSECUTIVE_COMPLETES];
+    static float last_raw_target;
 
+    bool rst = 0;
+    if (raw_target != last_raw_target){
+        rst = 1;
+    }
+    last_raw_target = raw_target;
     float target = raw_target / TURN_ADJUSTMENT_FACTOR; 
+
     bool turn_complete = abs(imu.angZ - target) < tolerance / TURN_ADJUSTMENT_FACTOR;
 
     int sum = 0;
     for (int ii=N_CONSECUTIVE_COMPLETES-1; ii>0; ii--){
-        last_states[ii] = last_states[ii-1];
+        if(rst){
+            last_states[ii] = 0;
+        }
+        else{
+            last_states[ii] = last_states[ii-1];
+        }
+        
         sum += last_states[ii];
     }
     last_states[0] = turn_complete;
