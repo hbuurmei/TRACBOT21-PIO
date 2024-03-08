@@ -3,8 +3,8 @@
 #define IR_LEFT     A2
 
 // EVENING VALUES 
-#define IR_MIN       250 
-#define IR_MAX       600
+#define IR_MIN       400 
+#define IR_MAX       650
 
 // DAYTIME VALUES
 // #define IR_MIN      550
