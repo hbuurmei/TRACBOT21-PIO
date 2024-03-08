@@ -3,7 +3,7 @@
 
 #include <Arduino.h>
 #include <sensors/imu.cpp>
-#include <TimerInterrupt.h>
+// #include <TimerInterrupt.h>
 #include <motor_control/motor_control.cpp>
 
 IMU imu;
@@ -22,8 +22,8 @@ void setup() {
     imu.calibrate();
     imu.reset_integrators();
     handle_mode(curr_mode);
-    ITimer1.init();
-    ITimer1.setFrequency(CONTROLLER_FREQ, controller);
+    // ITimer1.init();
+    // ITimer1.setFrequency(CONTROLLER_FREQ, controller);
 }
 
 void handle_mode(MODE mode) {
@@ -38,7 +38,7 @@ void handle_mode(MODE mode) {
             digitalWrite(IN4,LOW);
             analogWrite(EnB,0);
         case GO_FORWARD:
-            forward();
+            forward(3*PI);
     }
 }
 float wz;
