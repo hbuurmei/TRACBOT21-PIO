@@ -1,11 +1,11 @@
 
 // CONFIGURATION -- ALL SHOULD BE 1 FOR REAL RUNS
 #define DO_CELEBRATE 0  // 1 for real run
-#define DO_ORIENT 0     // 1 for real run
-#define DO_TEST 1       // 0 for real run
+#define DO_ORIENT 1     // 1 for real run
+#define DO_TEST 0       // 0 for real run
 
 #define DEBUG_GENERAL 1
-#define DEBUG_ORIENTING 0
+#define DEBUG_ORIENTING 1
 #define DEBUG_EXECUTE_TURN 0
 #define DEBUG_DRIVING_TO_BOX 0
 #define turn_testing  0
@@ -14,7 +14,7 @@ enum course_config {
     B,  // B --> 0
     A   // A --> 1
 };
-course_config course = A;
+course_config course = B;
 
 enum direction_config {
     R,  // right
@@ -71,7 +71,7 @@ void (*state_after_pause) (void) = start; // next state to use after a pause
 
 // Control functions
 void controller();
-bool execute_turn(float target, float speed = 2*PI, float tolerance = 2 * PI/180);//PI/64); //FLAG: changed speed from 1.7 to 2*PI //flag here
+bool execute_turn(float target, float speed = DEFAULT_MOTOR_SPEED, float tolerance = 2 * PI/180);//PI/64); //FLAG: changed speed from 1.7 to 2*PI //flag here
 
 struct result {bool done_sweep; bool found_target; float angle_target_body;};
 auto find_beacon_relative(bool rst = 0) -> result;
@@ -109,7 +109,7 @@ void setup() {
     // button_setup();
 
     // Initialize IMU, IR beacon sensor
-    // ir.initialize();
+    ir.initialize();
     imu.initialize();
     imu.calibrate();
 
@@ -122,7 +122,7 @@ Main Loop Code
 */
 void loop() {
     imu.update_measurement();
-    // ir.update();              //beacon IR
+    ir.update();              //beacon IR
     state();
     //try next run to see if it (somehow) helps avoid missed triggers
 }
@@ -165,13 +165,13 @@ void start() {
     
     // Reset integrator and move to orientation phase.
     imu.reset_integrators();
-    // if (DO_TEST){
-    //     state = test_state_init;
-    //     //state = turning_swivel;
-    //     time_state_change = millis();
-    //     if (DEBUG_GENERAL) {Serial.println("entering TEST");}
-    // }
-    if (turn_testing){
+    if (DO_TEST){
+        state = test_state_init;
+        //state = turning_swivel;
+        time_state_change = millis();
+        if (DEBUG_GENERAL) {Serial.println("entering TEST");}
+    }
+    else if (turn_testing){
         state = test_turns;
         turn_right(MIDDLE);
         direction = R;
@@ -509,7 +509,6 @@ void controller() {
     // //Update sensors
     imu.update_integrator();  // IMU integrator
     update_ir_states();       //black tape ir sensors
-
     // // 
     if(forward_controller){
         dw = -(kp*imu.gyroZ + ki*imu.angZ)*BASE_HALF_WIDTH/WHEEL_RADIUS;
@@ -687,14 +686,18 @@ void test_state_init(){
 
 unsigned long last_turn_complete = 0;
 void test_state(){
-    Serial.print(">imu.gyroZ:");
-    Serial.println(imu.gyroZ);
-    Serial.print(">imu.angZ:");
-    Serial.println(imu.angZ);
-    Serial.print(">dw:");
-    Serial.println(dw);
-    Serial.print(">wr_cmd:");
-    Serial.println(wr_cmd);
-    Serial.print(">wl_cmd:");
-    Serial.println(wl_cmd);
+    servos.closeHatch();
+    delay(1000);
+    servos.openHatch();
+    delay(1000);
+    servos.closeHatch();
+    delay(1000);
+
+    servos.setSwivelAngle(SWIVEL_LEFT);
+    delay(1000);
+    servos.setSwivelAngle(SWIVEL_RIGHT);
+    delay(1000);
+    servos.setSwivelAngle(SWIVEL_MIDDLE);
+    delay(1000);
+    
 }

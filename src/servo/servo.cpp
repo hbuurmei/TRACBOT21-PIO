@@ -41,11 +41,12 @@ class ServoDriver{
         }
 
         void closeHatch(){
-            pwm.setPWM(HATCH_SERVO,0,200);
+            pwm.setPWM(HATCH_SERVO,0,750);
         }
 
         void openHatch(){
-            pwm.setPWM(HATCH_SERVO,0,750);
+            pwm.setPWM(HATCH_SERVO,0,200);
+
         }
 
     private:
