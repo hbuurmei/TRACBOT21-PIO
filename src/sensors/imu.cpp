@@ -109,28 +109,28 @@ class IMU : public MPU6050 {
             gyroZ_bias = gyroZ_sum/samples;
         }
         void update_integrator() {
-            angX += gyroX/CONTROLLER_SAMPLES_PER_SEC; // rad/s / (sample/s) = rad/sample
-            angY += gyroY/CONTROLLER_SAMPLES_PER_SEC;
+            // angX += gyroX/CONTROLLER_SAMPLES_PER_SEC; // rad/s / (sample/s) = rad/sample
+            // angY += gyroY/CONTROLLER_SAMPLES_PER_SEC;
             angZ += gyroZ/CONTROLLER_SAMPLES_PER_SEC;
-            posX += velX/CONTROLLER_SAMPLES_PER_SEC;
-            posY += velY/CONTROLLER_SAMPLES_PER_SEC;
-            posZ += velZ/CONTROLLER_SAMPLES_PER_SEC;
-            velX += accelX/CONTROLLER_SAMPLES_PER_SEC;
-            velY += accelX/CONTROLLER_SAMPLES_PER_SEC;
-            velZ += accelX/CONTROLLER_SAMPLES_PER_SEC;
-            dist = sqrt(posX*posX + posY*posY);
-            dist_rate = sqrt(velX*velX + velY*velY);
+            // posX += velX/CONTROLLER_SAMPLES_PER_SEC;
+            // posY += velY/CONTROLLER_SAMPLES_PER_SEC;
+            // posZ += velZ/CONTROLLER_SAMPLES_PER_SEC;
+            // velX += accelX/CONTROLLER_SAMPLES_PER_SEC;
+            // velY += accelX/CONTROLLER_SAMPLES_PER_SEC;
+            // velZ += accelX/CONTROLLER_SAMPLES_PER_SEC;
+            // dist = sqrt(posX*posX + posY*posY);
+            // dist_rate = sqrt(velX*velX + velY*velY);
         }
         void reset_integrators() {
-            angX = 0.;
-            angY = 0.;
+            // angX = 0.;
+            // angY = 0.;
             angZ = 0.;
-            velX = 0.;
-            velY = 0.;
-            velZ = 0.;
-            posX = 0.;
-            posY = 0.;
-            posZ = 0.;
+            // velX = 0.;
+            // velY = 0.;
+            // velZ = 0.;
+            // posX = 0.;
+            // posY = 0.;
+            // posZ = 0.;
             accelX = 0.;
             accelY = 0.;
             accelZ = 0.;
@@ -149,15 +149,15 @@ class IMU : public MPU6050 {
         float gyroY_bias;   // rad/sec
         volatile float gyroZ;        // rad/sec
         float gyroZ_bias;   // rad/sec
-        volatile float angX = 0.;     // rad
-        volatile float angY = 0.;     // rad
+        // volatile float angX = 0.;     // rad
+        // volatile float angY = 0.;     // rad
         volatile float angZ = 0.;     // rad
-        volatile float velX = 0.;     // meters/sec
-        volatile float velY = 0.;     // meters/sec
-        volatile float velZ = 0.;     // meters/sec
-        volatile float posX = 0.;     // meters
-        volatile float posY = 0.;     // meters
-        volatile float posZ = 0.;     // meters
+        // volatile float velX = 0.;     // meters/sec
+        // volatile float velY = 0.;     // meters/sec
+        // volatile float velZ = 0.;     // meters/sec
+        // volatile float posX = 0.;     // meters
+        // volatile float posY = 0.;     // meters
+        // volatile float posZ = 0.;     // meters
         volatile float dist = 0.;     // meters
         volatile float dist_rate = 0.; // meters
     private:

@@ -10,11 +10,14 @@
 #include <Arduino.h>
 #include <sensors/ir_line.cpp>  //flag - for line follow attempt
 // #include <motor_control/motor_control.h>
-#define DEFAULT_MOTOR_SPEED 3*PI // rad/s   //upped from 2.5*PI for testing to avoid stalls
-#define MAX_MOTOR_SPEED 10.472 // rad/s
+#define MAX_MOTOR_SPEED 10.472 // Scaling Factor, "measured" speed at full duty cycle rad/s
+#define MIN_MOTOR_SPEED 1.7*PI // Measured reliable minimum speed rad/s
+
+#define DEFAULT_MOTOR_SPEED 0.5*(MAX_MOTOR_SPEED+MIN_MOTOR_SPEED) // rad/s   //upped from 2.5*PI for testing to avoid stalls
+
 #define RPS_TO_ANALOG 256 / MAX_MOTOR_SPEED
-#define WHEEL_RADIUS 0.042 // metets
-#define BASE_WIDTH 0.3048
+#define WHEEL_RADIUS 0.042 // meters
+#define BASE_HALF_WIDTH 0.3048/2
 
 // Basic Motor commands
 void right_forward(float speed = DEFAULT_MOTOR_SPEED) {

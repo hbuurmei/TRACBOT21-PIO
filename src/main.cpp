@@ -1,10 +1,10 @@
 
 // CONFIGURATION -- ALL SHOULD BE 1 FOR REAL RUNS
 #define DO_CELEBRATE 0  // 1 for real run
-#define DO_ORIENT 1     // 1 for real run
-#define DO_TEST 0       // 0 for real run
+#define DO_ORIENT 0     // 1 for real run
+#define DO_TEST 1       // 0 for real run
 
-#define DEBUG_GENERAL 0
+#define DEBUG_GENERAL 1
 #define DEBUG_ORIENTING 0
 #define DEBUG_EXECUTE_TURN 0
 #define DEBUG_DRIVING_TO_BOX 0
@@ -17,15 +17,16 @@ course_config course = B;
 
 #define swivel_interval 2    //2 degree turn intervals for now
 
+#define USE_TIMER_1     true
+
 #include <Arduino.h>
 #include <sensors/imu.cpp>
-#include <ISR_Timer.h>
+#include <TimerInterrupt.h>
 #include <motor_control/motor_control.cpp>
-#include <servo/servo.cpp>
+// #include <servo/servo.cpp>
 #include <button/button.cpp>
 #include <sensors/ir_beacon.cpp>
 
-ISR_Timer timer;
 IMU imu;
 IR_Beacon ir;
 
@@ -51,6 +52,7 @@ void test_state();
 void reversing_to_contact_zone();
 void drive_straight();
 void pause();   //pause between turning and driving straight (or really anything)
+void idle();
 
 // Initialize state
 void (*state) (void) = start;  // usually we would use waiting_for_button
@@ -87,10 +89,10 @@ void setup() {
         Serial.println("START");
     }
     // Configure Servos, set to defaults
-    swivel.attach(SWIVEL_SERVO_PIN);
-    swivel.write(60);
-    hatch.attach(HATCH_SERVO_PIN);
-    hatch.write(HATCH_CLOSED);
+    // swivel.attach(SWIVEL_SERVO_PIN);
+    // swivel.write(SWIVEL_NEUTRAL_ANGLE);
+    // hatch.attach(HATCH_SERVO_PIN);
+    // hatch.write(HATCH_CLOSED);
 
     // Stop any drive motor motion 
     stop();
@@ -99,13 +101,12 @@ void setup() {
     // button_setup();
 
     // Initialize IMU, IR beacon sensor
-    ir.initialize();
+    // ir.initialize();
     imu.initialize();
     imu.calibrate();
-    
-    // Begin controller timer
-    timer.init();
-    timer.setInterval(controller_interval, controller);
+
+    ITimer1.init();
+    ITimer1.setInterval(controller_interval, controller);
 }
 
 /*
@@ -113,12 +114,10 @@ Main Loop Code
 */
 void loop() {
     imu.update_measurement();
-    ir.update();              //beacon IR
+    // ir.update();              //beacon IR
     state();
-    timer.run();
 
     //try next run to see if it (somehow) helps avoid missed triggers
-    // Serial.print(imu.angZ);
 }
 
 
@@ -149,16 +148,16 @@ Transition to: orienting
 */
 void start() {
     // Wave hatch servo at start, before loading balls, to meet performance requirement 2
-    if (DO_CELEBRATE){
-        swivel.write(SWIVEL_LEFT_ANGLE);
-        delay(2000);
-        swivel.write(SWIVEL_NEUTRAL_ANGLE);
-        delay(2000);
-        swivel.write(SWIVEL_RIGHT_ANGLE);
-        delay(2000);
-        swivel.write(SWIVEL_NEUTRAL_ANGLE);
-        delay(1000);
-    }
+    // if (DO_CELEBRATE){
+    //     swivel.write(SWIVEL_LEFT_ANGLE);
+    //     delay(2000);
+    //     swivel.write(SWIVEL_NEUTRAL_ANGLE);
+    //     delay(2000);
+    //     swivel.write(SWIVEL_RIGHT_ANGLE);
+    //     delay(2000);
+    //     swivel.write(SWIVEL_NEUTRAL_ANGLE);
+    //     delay(1000);
+    // }
     
     // Reset integrator and move to orientation phase.
     imu.reset_integrators();
@@ -199,7 +198,7 @@ void orienting(){
     static result res;
     if (res.done_sweep){
         if (res.found_target){
-            swivel.write(60);
+            // swivel.write(60);
             bool turn_complete = execute_turn(res.angle_target_body + (course == A ? BEACON_OFFSET : -BEACON_OFFSET));
             if (turn_complete){
                 stop();
@@ -385,37 +384,37 @@ void reversing_to_contact_zone(){
 }
 
 void turning_swivel() {
-    switch (course) {
-        case B:
-            swivel.write(SWIVEL_RIGHT_ANGLE);
-            break;
-        case A:
-            swivel.write(SWIVEL_LEFT_ANGLE);
-            break;
-    }
-    if (millis() - time_state_change > 3000) {
-        state = dropping_balls;
-        hatch.write(HATCH_OPEN);
-    }
+    // switch (course) {
+    //     case B:
+    //         swivel.write(SWIVEL_RIGHT_ANGLE);
+    //         break;
+    //     case A:
+    //         swivel.write(SWIVEL_LEFT_ANGLE);
+    //         break;
+    // }
+    // if (millis() - time_state_change > 3000) {
+    //     state = dropping_balls;
+    //     hatch.write(HATCH_OPEN);
+    // }
 }
 
 void dropping_balls() { 
-    hatch.write(HATCH_OPEN);
-    delay(2000);
-    state = celebrating;
-    hatch.write(HATCH_CLOSED);
+    // hatch.write(HATCH_OPEN);
+    // delay(2000);
+    // state = celebrating;
+    // hatch.write(HATCH_CLOSED);
 }
 
 void celebrating() {   
-    delay(300);
-    hatch.write(HATCH_OPEN);
-    delay(300);
-    hatch.write(HATCH_CLOSED);
-    delay(300);
-    hatch.write(HATCH_OPEN);
-    delay(300);
-    hatch.write(HATCH_CLOSED);
-    //end point / terminal state
+    // delay(300);
+    // hatch.write(HATCH_OPEN);
+    // delay(300);
+    // hatch.write(HATCH_CLOSED);
+    // delay(300);
+    // hatch.write(HATCH_OPEN);
+    // delay(300);
+    // hatch.write(HATCH_CLOSED);
+    // //end point / terminal state
 }
 
 /*
@@ -436,22 +435,26 @@ void pause(){
 volatile float dw;
 volatile int wr_cmd;
 volatile int wl_cmd;
-volatile float kp = 2.;
-volatile float ki = 5.;
+volatile float kp = 5.;
+volatile float ki = 3.;
 // float sign(float x) {x >= 0 ? 1. : -1.;}
 
 void controller() {    
-    // Update sensors
+    // //Update sensors
+    //kp += 1;
     imu.update_integrator();  // IMU integrator
-    update_ir_states();       //black tape ir sensors
+    // update_ir_states();       //black tape ir sensors
 
-    // 
+    // // 
     if(forward_controller){
-        dw = -(kp*imu.gyroZ + ki*imu.angZ)*BASE_WIDTH/WHEEL_RADIUS;
-        wr_cmd = DEFAULT_MOTOR_SPEED + dw/2;
-        wl_cmd = DEFAULT_MOTOR_SPEED - dw/2;
+        dw = -(kp*imu.gyroZ + ki*imu.angZ)*BASE_HALF_WIDTH/WHEEL_RADIUS;
+        // wr_cmd = max(DEFAULT_MOTOR_SPEED + dw, MIN_MOTOR_SPEED);
+        // wl_cmd = max(DEFAULT_MOTOR_SPEED - dw, MIN_MOTOR_SPEED);
+        wr_cmd = DEFAULT_MOTOR_SPEED + dw;
+        wl_cmd = DEFAULT_MOTOR_SPEED - dw;
         analogWrite(EnA, wr_cmd * RPS_TO_ANALOG);
         analogWrite(EnB, wl_cmd * RPS_TO_ANALOG);
+        //if needed, implement floor (reach min speed, fix it by turning one way til good)
     }
 }
 
@@ -542,7 +545,7 @@ auto find_beacon_relative(bool rst) -> result{
     if (servo_angle_deg <= SERVO_SWEEP){
         if (millis()>last_servo_move+250){
             last_servo_move = millis();
-            swivel.write(servo_angle_deg);
+            // swivel.write(servo_angle_deg);
             servo_angle_deg += swivel_interval;
             
             int this_sum = 0;
@@ -578,28 +581,35 @@ auto find_beacon_relative(bool rst) -> result{
     return result{0, 0, 0};
 }
 
+
+void idle(){
+    Serial.print(">imuZ:");
+    Serial.println(imu.angZ);
+}
+
 /*
 TEST FUNCTIONS
 */
 
 void test_state_init(){
-    imu.calibrate();
     imu.reset_integrators();
     state = test_state;
+    Serial.println("TEST START");
+ 
+    forward();
+    forward_controller = 1;
 }
 
 unsigned long last_turn_complete = 0;
 void test_state(){
-    // static int ii = 0;
-    static float turn_target = PI/2;
-    static bool turn_complete = 0;
-
-    turn_complete = execute_turn(turn_target);
-
-    if (turn_complete){
-        turn_target += PI/4;
-    }
-
-    Serial.print(">turn_complete:");
-    Serial.println(turn_complete);
+    Serial.print(">imu.gyroZ:");
+    Serial.println(imu.gyroZ);
+    Serial.print(">imu.angZ:");
+    Serial.println(imu.angZ);
+    Serial.print(">dw:");
+    Serial.println(dw);
+    Serial.print(">wr_cmd:");
+    Serial.println(wr_cmd);
+    Serial.print(">wl_cmd:");
+    Serial.println(wl_cmd);
 }
