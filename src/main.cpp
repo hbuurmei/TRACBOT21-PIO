@@ -31,12 +31,13 @@ direction_config direction = R;
 #include <sensors/imu.cpp>
 #include <TimerInterrupt.h>
 #include <motor_control/motor_control.cpp>
-// #include <servo/servo.cpp>
+#include <servo/servo.cpp>
 #include <button/button.cpp>
 #include <sensors/ir_beacon.cpp>
 
 IMU imu;
 IR_Beacon ir;
+ServoDriver servos;
 
 // State functions
 void waiting_for_button();
@@ -99,10 +100,7 @@ void setup() {
         Serial.println("START");
     }
     // Configure Servos, set to defaults
-    // swivel.attach(SWIVEL_SERVO_PIN);
-    // swivel.write(SWIVEL_NEUTRAL_ANGLE);
-    // hatch.attach(HATCH_SERVO_PIN);
-    // hatch.write(HATCH_CLOSED);
+    servos.initialize();
 
     // Stop any drive motor motion 
     stop();
@@ -126,11 +124,8 @@ void loop() {
     imu.update_measurement();
     // ir.update();              //beacon IR
     state();
-
     //try next run to see if it (somehow) helps avoid missed triggers
 }
-
-
 
 /*
 STATE FUNCTIONS
@@ -157,17 +152,16 @@ Execute initial celebration. Wave the hatch servo.
 Transition to: orienting
 */
 void start() {
-    // Wave hatch servo at start, before loading balls, to meet performance requirement 2
-    // if (DO_CELEBRATE){
-    //     swivel.write(SWIVEL_LEFT_ANGLE);
-    //     delay(2000);
-    //     swivel.write(SWIVEL_NEUTRAL_ANGLE);
-    //     delay(2000);
-    //     swivel.write(SWIVEL_RIGHT_ANGLE);
-    //     delay(2000);
-    //     swivel.write(SWIVEL_NEUTRAL_ANGLE);
-    //     delay(1000);
-    // }
+    if (DO_CELEBRATE){
+        servos.setSwivelAngle(SWIVEL_LEFT);
+        delay(2000);
+        servos.setSwivelAngle(SWIVEL_MIDDLE);
+        delay(2000);
+        servos.setSwivelAngle(SWIVEL_RIGHT);
+        delay(2000);
+        servos.setSwivelAngle(SWIVEL_MIDDLE);
+        delay(1000);
+    }
     
     // Reset integrator and move to orientation phase.
     imu.reset_integrators();
@@ -218,7 +212,7 @@ void orienting(){
     static result res;
     if (res.done_sweep){
         if (res.found_target){
-            // swivel.write(60);
+            servos.setSwivelAngle(SWIVEL_MIDDLE);
             bool turn_complete = execute_turn(res.angle_target_body + (course == A ? BEACON_OFFSET : -BEACON_OFFSET));
             if (turn_complete){
                 stop();
@@ -443,10 +437,10 @@ void driving_to_shooting_zone() {
     if (millis() - time_state_change > 3000) {
         stop();
         forward_controller = 0;
-        // state = turning_swivel; //flag temporarily disabled
-        // backward(); //flag: remove /move to proper place later
-        // state = reversing_to_contact_zone;
-        // time_state_change = millis();
+        state = turning_swivel; //flag temporarily disabled
+        backward(); //flag: remove /move to proper place later
+        state = reversing_to_contact_zone;
+        time_state_change = millis();
     }
 }
 //state to reverse and hit contact zone after shooting in case we missed it. Move to after shooting when fully integrating
@@ -457,36 +451,35 @@ void reversing_to_contact_zone(){
 }
 
 void turning_swivel() {
-    // switch (course) {
-    //     case B:
-    //         swivel.write(SWIVEL_RIGHT_ANGLE);
-    //         break;
-    //     case A:
-    //         swivel.write(SWIVEL_LEFT_ANGLE);
-    //         break;
-    // }
-    // if (millis() - time_state_change > 3000) {
-    //     state = dropping_balls;
-    //     hatch.write(HATCH_OPEN);
-    // }
+    switch (course) {
+        case B:
+            servos.setSwivelAngle(SWIVEL_LEFT);
+            break;
+        case A:
+            servos.setSwivelAngle(SWIVEL_RIGHT);
+            break;
+    }
+    if (millis() - time_state_change > 3000) {
+        state = dropping_balls;
+        servos.openHatch();
+    }
 }
 
 void dropping_balls() { 
-    // hatch.write(HATCH_OPEN);
-    // delay(2000);
-    // state = celebrating;
-    // hatch.write(HATCH_CLOSED);
+    servos.openHatch();
+    delay(2000);
+    state = celebrating;
 }
 
 void celebrating() {   
-    // delay(300);
-    // hatch.write(HATCH_OPEN);
-    // delay(300);
-    // hatch.write(HATCH_CLOSED);
-    // delay(300);
-    // hatch.write(HATCH_OPEN);
-    // delay(300);
-    // hatch.write(HATCH_CLOSED);
+    servos.openHatch();
+    delay(1000);
+    servos.closeHatch();
+    delay(1000);
+    servos.openHatch();
+    delay(1000);
+    servos.closeHatch();
+    delay(1000);
     // //end point / terminal state
 }
 
@@ -587,7 +580,7 @@ bool execute_turn(float raw_target, float speed, float tolerance){
     return sum == N_CONSECUTIVE_COMPLETES;
 }
 
-#define SERVO_SWEEP 130
+#define SERVO_SWEEP 180
 auto find_beacon_relative(bool rst) -> result{
     static int servo_angle_deg = 0; // current angle of servo
     static int angle_target = 0; // estimated servo angle to target
@@ -617,7 +610,7 @@ auto find_beacon_relative(bool rst) -> result{
     if (servo_angle_deg <= SERVO_SWEEP){
         if (millis()>last_servo_move+250){
             last_servo_move = millis();
-            // swivel.write(servo_angle_deg);
+            servos.setSwivelAngle(servo_angle_deg);
             servo_angle_deg += swivel_interval;
             
             int this_sum = 0;
@@ -634,7 +627,7 @@ auto find_beacon_relative(bool rst) -> result{
             if (this_sum > max_ir_reading){
                 max_ir_reading = this_sum;
                 angle_target = last_angles[LEN_CONV/2]; // take middle of conv.
-                angle_target_body = (float(map(angle_target, 0, 130, -90, 90)) * PI/180);
+                angle_target_body = (float(map(angle_target, 0, 180, -90, 90)) * PI/180);
             }
             if (DEBUG_ORIENTING){
                 Serial.print(">ServoAngle: ");

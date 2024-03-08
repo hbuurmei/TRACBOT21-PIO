@@ -20,6 +20,9 @@
 //#define SWIVEL_MAX_DEG 270
 #define SWIVEL_MAX_DEG 180
 
+#define SWIVEL_LEFT  0
+#define SWIVEL_MIDDLE 90
+#define SWIVEL_RIGHT 180
 class ServoDriver{
     public:
         void initialize(){
@@ -27,6 +30,9 @@ class ServoDriver{
             pwm.begin();
             pwm.setOscillatorFrequency(27000000);
             pwm.setPWMFreq(SERVO_FREQ);  // Analog servos run at ~50 Hz updates
+
+            closeHatch();
+            setSwivelAngle(SWIVEL_MIDDLE);
         }
 
         void setSwivelAngle(long angle){
