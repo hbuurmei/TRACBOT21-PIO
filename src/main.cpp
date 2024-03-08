@@ -1,7 +1,9 @@
-
+//switching to timed turns for all turns but orientation turn. 
+//Setting up only for Course A (better beacon readings)
+//Hopefully run imu integration on hardware timer for orientation turn, then switch to software timer for forward controller
 // CONFIGURATION -- ALL SHOULD BE 1 FOR REAL RUNS
 #define DO_CELEBRATE 0  // 1 for real run
-#define DO_ORIENT 1     // 1 for real run
+#define DO_ORIENT 0     // 1 for real run
 #define DO_TEST 0       // 0 for real run
 
 #define DEBUG_GENERAL 0
@@ -9,17 +11,20 @@
 #define DEBUG_EXECUTE_TURN 0
 #define DEBUG_DRIVING_TO_BOX 0
 
+// #define USE_TIMER_ true
+
 enum course_config {
     B,  // B --> 0
     A   // A --> 1
 };
-course_config course = B;
+course_config course = A;
 
 #define swivel_interval 2    //2 degree turn intervals for now
 
 #include <Arduino.h>
 #include <sensors/imu.cpp>
 #include <ISR_Timer.h>
+#include <TimerInterrupt.h>
 #include <motor_control/motor_control.cpp>
 #include <servo/servo.cpp>
 #include <button/button.cpp>
@@ -86,13 +91,16 @@ void setup() {
         Serial.begin(9600);
         Serial.println("START");
     }
+    Serial.begin(9600);
     // Configure Servos, set to defaults
-    swivel.attach(SWIVEL_SERVO_PIN);
-    swivel.write(60);
-    hatch.attach(HATCH_SERVO_PIN);
-    hatch.write(HATCH_CLOSED);
+    //FLAG -- disabled for now
+    // swivel.attach(SWIVEL_SERVO_PIN);
+    // swivel.write(60);
+    // hatch.attach(HATCH_SERVO_PIN);
+    // hatch.write(HATCH_CLOSED);
 
     // Stop any drive motor motion 
+    Serial.println("???");
     stop();
 
     // Set up button
@@ -106,6 +114,8 @@ void setup() {
     // Begin controller timer
     timer.init();
     timer.setInterval(controller_interval, controller);
+    // ITimer2.init();
+    // ITimer2.setInterval(50,controller);
 }
 
 /*
@@ -174,6 +184,7 @@ void start() {
         time_state_change = millis();
         if (DEBUG_GENERAL) {Serial.println("entering orienting");}
     } else{
+        Serial.println("IN START");
         state = pause;
         state_after_pause = driving_to_box;
         time_state_change = millis();
@@ -209,6 +220,7 @@ void orienting(){
                 time_state_change = millis();
                 if (DEBUG_GENERAL) {Serial.println("Entering driving to box");}
                 reset_ir_triggers();
+                // ITimer2.disableTimer();
             }
         }
         else{
@@ -253,6 +265,8 @@ void aligning_with_gap() {
         forward_controller = 0;
         imu.reset_integrators();
         state = turning_to_gap;
+        turn_right(MIDDLE);
+        time_state_change = millis();
         if (DEBUG_GENERAL) {Serial.println("Entering turning_to_gap");}
     }
 }
@@ -262,15 +276,12 @@ Robot is turning towards the gap.
 Once the robot has turned 90degrees, robot stops and transitions to driving_through_gap.
 */
 void turning_to_gap() {
-    bool turn_complete = execute_turn(course == A ? -PI/2: PI/2);
-
-    if (turn_complete) {
+    if (millis()-time_state_change >= 1800){
         stop();
-        imu.reset_integrators();
         time_state_change = millis();
         state = pause;
         state_after_pause = driving_through_gap;
-        if (DEBUG_GENERAL) {Serial.println("Entering pause");}
+        imu.reset_integrators();
     }
 }
 
@@ -288,18 +299,18 @@ void driving_through_gap() {
     
 
     if(ir_left_triggers || ir_mid_triggers || ir_right_triggers){
-        if (DEBUG_GENERAL) {Serial.print("left: ");
-        Serial.println(ir_left_triggers);
-        Serial.print("middle: ");
-        Serial.println(ir_mid_triggers);
-        Serial.print("right ");
-        Serial.println(ir_right_triggers);}
+        // if (DEBUG_GENERAL) {Serial.print("left: ");
+        // Serial.println(ir_left_triggers);
+        // Serial.print("middle: ");
+        // Serial.println(ir_mid_triggers);
+        // Serial.print("right ");
+        // Serial.println(ir_right_triggers);}
         stop();
         forward_controller = 0;
         imu.reset_integrators();
 
         state = turning_to_contact_zone;
-        if (DEBUG_GENERAL) {Serial.println("Entering turning_to_contact_zone");}
+        turn_left(MIDDLE);
         time_state_change = millis();
     }
 }
@@ -308,17 +319,13 @@ void driving_through_gap() {
 Turn towards contact zone
 */
 void turning_to_contact_zone() {
-    bool turn_complete = execute_turn(course==A ? PI/2 : -PI/2);
-
-    if (turn_complete) { 
+    if(millis()-time_state_change>=1800){
         stop();
         imu.reset_integrators();
-
         state_after_pause = driving_to_contact_zone;
         state = pause;
         if (DEBUG_GENERAL) {Serial.println("Entering driving_to_contact_zone");}
         time_state_change = millis();
-
     }
 }
 
@@ -343,6 +350,7 @@ void retreating_from_contact_zone(){
     backward();
     if(millis() > time_state_change + 350){ //reduced from 500 ms to 350 ms
         stop();
+        turn_right(MIDDLE);
         time_state_change = millis();
         state = turning_to_shooting_zone;
         if (DEBUG_GENERAL) {Serial.println("Entering turning_to_shooting_zone");}
@@ -350,17 +358,14 @@ void retreating_from_contact_zone(){
 }
 
 void turning_to_shooting_zone() {
-    bool turn_complete = execute_turn(course == A ? -PI/2 : PI/2);
-    //underturn for shooting zone to make up for right forward bias
-    // bool turn_complete = execute_turn(course == A ? -88*PI/180 : 88*PI/180);
-
-    if (turn_complete) {
+    if(millis()-time_state_change>=1800){
         stop();
         imu.reset_integrators();
         state_after_pause = driving_to_shooting_zone;
         state = pause;
         if (DEBUG_GENERAL) {Serial.println("Entering driving_to_shooting_zone");}
         time_state_change = millis();
+    
     }
 }
 
@@ -423,6 +428,7 @@ FLOW CONTROL AND MOTION FUNCTIONS
 */
 
 void pause(){
+    Serial.println(millis()-time_state_change);
     if(millis()-time_state_change >= 2000){
         forward();
         forward_controller = 1;

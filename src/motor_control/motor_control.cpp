@@ -10,7 +10,7 @@
 #include <Arduino.h>
 #include <sensors/ir_line.cpp>  //flag - for line follow attempt
 // #include <motor_control/motor_control.h>
-#define DEFAULT_MOTOR_SPEED 3*PI // rad/s   //upped from 2.5*PI for testing to avoid stalls
+#define DEFAULT_MOTOR_SPEED 2.5*PI // rad/s  
 #define MAX_MOTOR_SPEED 10.472 // rad/s
 #define RPS_TO_ANALOG 256 / MAX_MOTOR_SPEED
 #define WHEEL_RADIUS 0.042 // metets
@@ -48,12 +48,12 @@ void left_stop() {
     analogWrite(EnB,0);
 }
 void stop() {left_stop(); right_stop();}
-void forward(float left_speed = DEFAULT_MOTOR_SPEED, float right_speed = DEFAULT_MOTOR_SPEED) {
-    left_forward(left_speed); 
-    right_forward(right_speed);
-}
+// void forward(float left_speed = DEFAULT_MOTOR_SPEED, float right_speed = DEFAULT_MOTOR_SPEED) {
+//     left_forward(left_speed); 
+//     right_forward(right_speed);
+// }
 //3*PI speed forward to hopefully go straighter
-void forward_3pi(float left_speed = 3*PI, float right_speed = 3*PI) {
+void forward(float left_speed = 3*PI, float right_speed = 3*PI) {
     left_forward(left_speed); 
     right_forward(right_speed);
 }
