@@ -300,6 +300,7 @@ void turning_to_gap() {
         state = driving_through_gap;
         forward();
         time_state_change = millis();
+        reset_ir_triggers();
         forward_controller = 1;
         if (DEBUG_GENERAL) {Serial.println("Entering driving_through_gap");}
     }
@@ -312,10 +313,11 @@ for lines. Once line crossed, transition to turning_to_contact_zone.
 */
 void driving_through_gap() {
     // Do nothing until 3s elapsed
-    Serial.println("line sensors inactive");
-    if (millis() < time_state_change + 2000){ //FLAG this value needs tuning
-        reset_ir_triggers();
+    if (millis() - time_state_change >= 3000){ //FLAG this value needs tuning
+        Serial.println("ir sensors should be triggering");
         if(ir_left_triggers || ir_mid_triggers || ir_right_triggers){
+            Serial.println("line sensors active");
+
             if (DEBUG_GENERAL) {Serial.print("left: ");
                 Serial.println(ir_left_triggers);
                 Serial.print("middle: ");
