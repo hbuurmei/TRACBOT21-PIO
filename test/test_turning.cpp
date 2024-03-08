@@ -16,7 +16,7 @@ void setup() {
     delay(1000);
     // imu.calibrate();
     // turn_right(FORWARD, 2.5*PI);
-    turn_right(MIDDLE, 2.5*PI);
+    turn_left(MIDDLE, 2*PI);
     // imu.reset_integrators();
     // ITimer1.init();
     // ITimer1.setFrequency(25, check_turn);
@@ -26,7 +26,7 @@ void setup() {
 }
 
 void loop() {
-    if (millis() > 1800) {
+    if (millis() >= 5300) { //4150 for right 360, 4250 for left
         stop();
     }
     // imu.update_measurement();

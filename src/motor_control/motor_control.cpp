@@ -16,6 +16,7 @@
 #define WHEEL_RADIUS 0.042 // metets
 #define BASE_WIDTH 0.3048
 
+
 // Basic Motor commands
 void right_forward(float speed = DEFAULT_MOTOR_SPEED) {
     digitalWrite(IN1,HIGH);  // HIGH = Forward, LOW = Backward
@@ -97,13 +98,3 @@ void line_follow(float speed = DEFAULT_MOTOR_SPEED){
     }
 }
 
-// //context -- delete later (or at least comment out)
-// void forward(float left_speed = DEFAULT_MOTOR_SPEED, float right_speed = DEFAULT_MOTOR_SPEED) {
-//     left_forward(left_speed); 
-//     right_forward(right_speed);
-// }
-// void right_forward(float speed = DEFAULT_MOTOR_SPEED) {
-//     digitalWrite(IN1,HIGH);  // HIGH = Forward, LOW = Backward
-//     digitalWrite(IN2,LOW);  // Opposite of IN1
-//     analogWrite(EnA,speed * RPS_TO_ANALOG);
-// }

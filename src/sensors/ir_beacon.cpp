@@ -1,43 +1,56 @@
-#define IR_BEACON A3
-#define IR_RST 4
-
-#define IR_RAW_MIN 561
-#define IR_RAW_MAX 1000
-
-#define IR_POLL_INT 100
-#define IR_AV_LEN 10
+//changed ir_beacon class to Ultrasonic class
+//Ultrasonic:
+#define trigPin 6
+#define echoPin 5
 
 #include <Arduino.h>
 
-class IR_Beacon{
+class Ultrasonic{
     public:
-        int raw;
-        int value;
+        long duration;
+        float distance; //maybe make int
+        // int target_time;
 
         void initialize();
         void update(); 
+        
 };
 
-void IR_Beacon::initialize(){
-    pinMode(IR_RST, OUTPUT);
-    pinMode(IR_BEACON, INPUT);
-    digitalWrite(IR_RST, LOW);
-    analogReference(DEFAULT);
+void Ultrasonic::initialize(){
+    pinMode(trigPin, OUTPUT); // Sets the trigPin as an Output
+    pinMode(echoPin, INPUT); // Sets the echoPin as an Input
 }
 
-void IR_Beacon::update(){
-    static volatile unsigned long last_check = 0;
-    if (millis() > last_check + IR_POLL_INT){
-        last_check = millis();
-        raw = analogRead(IR_BEACON);
-        value = map(
-            raw,
-            IR_RAW_MIN, IR_RAW_MAX,
-            0, 1023
-        );
-        digitalWrite(IR_RST, HIGH);
-    }
-    else {
-        digitalWrite(IR_RST, LOW);
-    }
+void Ultrasonic::update(){
+    digitalWrite(trigPin, LOW);
+    delayMicroseconds(2);
+    // Sets the trigPin on HIGH state for 10 micro seconds
+    digitalWrite(trigPin, HIGH);
+    delayMicroseconds(2);
+    digitalWrite(trigPin, LOW);
+    // Reads the echoPin, returns the sound wave travel time in microseconds
+    duration = pulseIn(echoPin, HIGH);
+    // Calculating the distance
+    distance = duration * 0.034 / 2;
 }
+
+
+
+//--------------------------
+// long duration;
+// int distance;
+// void run_ultrasonic(){
+//     digitalWrite(trigPin, LOW);
+//     delayMicroseconds(2);
+//     // Sets the trigPin on HIGH state for 10 micro seconds
+//     digitalWrite(trigPin, HIGH);
+//     delayMicroseconds(10);
+//     digitalWrite(trigPin, LOW);
+//     // Reads the echoPin, returns the sound wave travel time in microseconds
+//     duration = pulseIn(echoPin, HIGH);
+//     // Calculating the distance
+//     distance = duration * 0.034 / 2;
+//     // Prints the distance on the Serial Monitor
+//     Serial.print("Distance: ");
+//     Serial.println(distance);
+// }
