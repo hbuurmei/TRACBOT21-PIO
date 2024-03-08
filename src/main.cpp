@@ -1,10 +1,10 @@
 
 // CONFIGURATION -- ALL SHOULD BE 1 FOR REAL RUNS
 #define DO_CELEBRATE 0  // 1 for real run
-#define DO_ORIENT 1     // 1 for real run
+#define DO_ORIENT 0     // 1 for real run
 #define DO_TEST 0       // 0 for real run
 
-#define DEBUG_ORIENTING 1
+#define DEBUG_ORIENTING 0
 #define DEBUG_EXECUTE_TURN 0
 
 enum course_config {
@@ -46,13 +46,16 @@ void celebrating();
 
 void test_state_init();
 void test_state();
+void reversing_to_contact_zone();
+void drive_straight();
+void pause();   //pause between turning and driving straight (or really anything)
 
 // Initialize state
 void (*state) (void) = start;  // usually we would use waiting_for_button
 
 // Control functions
 void controller();
-bool execute_turn(float target, float speed = 1.7*PI, float tolerance = 5 * PI/180);//PI/64);
+bool execute_turn(float target, float speed = 2*PI, float tolerance = 2 * PI/180);//PI/64); //FLAG: changed speed from 1.7 to 2*PI //flag here
 
 struct result {bool done_sweep; bool found_target; float angle_target_body;};
 auto find_beacon_relative(bool rst = 0) -> result;
@@ -82,7 +85,6 @@ void setup() {
     // Configure Servos, set to defaults
     swivel.attach(SWIVEL_SERVO_PIN);
     swivel.write(60);
-
     hatch.attach(HATCH_SERVO_PIN);
     hatch.write(HATCH_CLOSED);
 
@@ -90,7 +92,7 @@ void setup() {
     stop();
 
     // Set up button
-    button_setup();
+    // button_setup();
 
     // Initialize IMU, IR beacon sensor
     ir.initialize();
@@ -111,6 +113,8 @@ void loop() {
     state();
     timer.run();
 }
+
+
 
 /*
 STATE FUNCTIONS
@@ -318,11 +322,18 @@ void turning_to_gap() {
         stop();
         imu.reset_integrators();
         time_state_change = millis();
-        state = driving_through_gap;
-        Serial.println("Entering driving_through_gap");
+        state = pause;
+        Serial.println("Entering pause");
+    }
+}
 
+void pause(){
+    if(millis()-time_state_change >= 2000){
         forward();
         forward_controller = 1;
+        time_state_change = millis();
+        state = driving_through_gap;
+        Serial.println("Entering driving_through_gap");
     }
 }
 
@@ -332,7 +343,7 @@ Robot will not pay attention to any lines until 3.5s have elapsed. Once 3.5s hav
 for lines. Once line crossed, transition to turning_to_contact_zone.
 */
 void driving_through_gap() {
-    // Do nothing until 3.5s elapsed
+    // Do nothing until 3s elapsed
     if (millis() < time_state_change + 3000){
         reset_ir_triggers();
         return;
@@ -419,8 +430,16 @@ void driving_to_shooting_zone() {
     if (millis() - time_state_change > 6000) {
         stop();
         forward_controller = 0;
-        state = turning_swivel;
+        // state = turning_swivel; //flag temporarily disabled
+        backward(); //flag: remove /move to proper place later
+        state = reversing_to_contact_zone;
         time_state_change = millis();
+    }
+}
+//state to reverse and hit contact zone after shooting in case we missed it. Move to after shooting when fully integrating
+void reversing_to_contact_zone(){
+    if (millis() - time_state_change >= 5000){
+        stop();
     }
 }
 
@@ -480,8 +499,8 @@ void controller() {
     }
 }
 
-//#define TURN_ADJUSTMENT_FACTOR 1.57
-#define N_CONSECUTIVE_COMPLETES 10
+// #define TURN_ADJUSTMENT_FACTOR 1.57
+#define N_CONSECUTIVE_COMPLETES 5
 #define TURN_ADJUSTMENT_FACTOR 1
 bool execute_turn(float raw_target, float speed, float tolerance){
     static bool last_states[N_CONSECUTIVE_COMPLETES];

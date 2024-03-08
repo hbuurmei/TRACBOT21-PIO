@@ -10,7 +10,7 @@
 #include <Arduino.h>
 #include <sensors/ir_line.cpp>  //flag - for line follow attempt
 // #include <motor_control/motor_control.h>
-#define DEFAULT_MOTOR_SPEED 2.5*PI // rad/s    //used to be 1.75*PI
+#define DEFAULT_MOTOR_SPEED 3*PI // rad/s   //upped from 2.5*PI for testing to avoid stalls
 #define MAX_MOTOR_SPEED 10.472 // rad/s
 #define RPS_TO_ANALOG 256 / MAX_MOTOR_SPEED
 #define WHEEL_RADIUS 0.042 // metets
