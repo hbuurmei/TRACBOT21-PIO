@@ -4,8 +4,7 @@
 #define DO_ORIENT 1     // 1 for real run
 #define DO_TEST 0       // 0 for real run
 
-#define DEBUG_ORIENTING 0
-#define DEBUG_CONTROLLER 0
+#define DEBUG_ORIENTING 1
 #define DEBUG_EXECUTE_TURN 0
 
 enum course_config {
@@ -14,8 +13,6 @@ enum course_config {
 };
 course_config course = A;
 
-#define LEFT_90_TURN 85*PI/180  //verified as 85
-#define RIGHT_90_TURN 82.5*PI/180   //verified as 82.5
 #define swivel_interval 2    //2 degree turn intervals for now
 
 #include <Arduino.h>
@@ -55,12 +52,14 @@ void (*state) (void) = start;  // usually we would use waiting_for_button
 
 // Control functions
 void controller();
-bool execute_turn(float target, float speed = 1.7*PI, float tolerance = .0436);//PI/64);
+bool execute_turn(float target, float speed = 1.7*PI, float tolerance = 5 * PI/180);//PI/64);
 
 struct result {bool done_sweep; bool found_target; float angle_target_body;};
 auto find_beacon_relative(bool rst = 0) -> result;
 
 static volatile bool forward_controller = 0; //idea: set to 1 whenever trying to drive straight, 0 otherwise, logic in controller
+
+unsigned long controller_interval = 1000/CONTROLLER_SAMPLES_PER_SEC; // 1000 ms/s / samples/s = ms/sample
 
 // Dictates behavior of the controller function.
 enum control_state{
@@ -100,7 +99,7 @@ void setup() {
     
     // Begin controller timer
     timer.init();
-    timer.setInterval(40, controller);
+    timer.setInterval(controller_interval, controller);
 }
 
 /*
@@ -108,6 +107,7 @@ Main Loop Code
 */
 void loop() {
     imu.update_measurement();
+    ir.update();              //beacon IR
     state();
     timer.run();
 }
@@ -152,8 +152,8 @@ void start() {
     // Reset integrator and move to orientation phase.
     imu.reset_integrators();
     if (DO_TEST){
-        // state = test_state_init;
-        state = turning_swivel;
+        state = test_state_init;
+        //state = turning_swivel;
         time_state_change = millis();
         Serial.println("entering TEST");
     }
@@ -469,7 +469,6 @@ void controller() {
     // Update sensors
     imu.update_integrator();  // IMU integrator
     update_ir_states();       //black tape ir sensors
-    ir.update();              //beacon IR
 
     // 
     if(forward_controller){
@@ -481,9 +480,9 @@ void controller() {
     }
 }
 
-#define TURN_ADJUSTMENT_FACTOR 1.57
+//#define TURN_ADJUSTMENT_FACTOR 1.57
 #define N_CONSECUTIVE_COMPLETES 10
-// #define TURN_ADJUSTMENT_FACTOR 1
+#define TURN_ADJUSTMENT_FACTOR 1
 bool execute_turn(float raw_target, float speed, float tolerance){
     static bool last_states[N_CONSECUTIVE_COMPLETES];
     static float last_raw_target;
@@ -545,10 +544,14 @@ void test_state_init(){
 unsigned long last_turn_complete = 0;
 void test_state(){
     // static int ii = 0;
-    static float turn_target = PI/4;
+    static float turn_target = PI/2;
     static bool turn_complete = 0;
 
     turn_complete = execute_turn(turn_target);
+
+    if (turn_complete){
+        turn_target += PI/4;
+    }
 
     Serial.print(">turn_complete:");
     Serial.println(turn_complete);

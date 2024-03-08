@@ -1,5 +1,7 @@
 #include <Arduino.h>
 #include <MPU6050.h>
+
+#define CONTROLLER_SAMPLES_PER_SEC 20
 class IMU : public MPU6050 {
     public:
         void initialize() {
@@ -107,15 +109,15 @@ class IMU : public MPU6050 {
             gyroZ_bias = gyroZ_sum/samples;
         }
         void update_integrator() {
-            angX += gyroX/25.;
-            angY += gyroY/25.;
-            angZ += gyroZ/25.;
-            posX += velX/25.;
-            posY += velY/25.;
-            posZ += velZ/25.;
-            velX += accelX/25.;
-            velY += accelX/25.;
-            velZ += accelX/25.;
+            angX += gyroX/CONTROLLER_SAMPLES_PER_SEC; // rad/s / (sample/s) = rad/sample
+            angY += gyroY/CONTROLLER_SAMPLES_PER_SEC;
+            angZ += gyroZ/CONTROLLER_SAMPLES_PER_SEC;
+            posX += velX/CONTROLLER_SAMPLES_PER_SEC;
+            posY += velY/CONTROLLER_SAMPLES_PER_SEC;
+            posZ += velZ/CONTROLLER_SAMPLES_PER_SEC;
+            velX += accelX/CONTROLLER_SAMPLES_PER_SEC;
+            velY += accelX/CONTROLLER_SAMPLES_PER_SEC;
+            velZ += accelX/CONTROLLER_SAMPLES_PER_SEC;
             dist = sqrt(posX*posX + posY*posY);
             dist_rate = sqrt(velX*velX + velY*velY);
         }
