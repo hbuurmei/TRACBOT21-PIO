@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <MPU6050.h>
 
-#define CONTROLLER_SAMPLES_PER_SEC 20
+#define CONTROLLER_SAMPLES_PER_SEC 20   //FLAG so far 20 is best. resetting to 25 to test if turn oscillations come back
 class IMU : public MPU6050 {
     public:
         void initialize() {
