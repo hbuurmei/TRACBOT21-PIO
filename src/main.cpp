@@ -65,6 +65,7 @@ void test_state();
 void reversing_to_contact_zone();
 void drive_straight();
 void pause_forward();   //pause between turning and driving straight (or really anything)
+void pause_forward_2PI();
 void pause_backwards();
 void pause_right();
 void pause_left();
@@ -401,7 +402,7 @@ void turning_to_contact_zone() {
     if (turn_complete) { 
         stop();
         imu.reset_integrators();
-        state = pause_forward;
+        state = pause_forward_2PI;
         state_after_pause = driving_to_contact_zone;
         // forward();
         time_state_change = millis();
@@ -554,6 +555,18 @@ void pause_forward(){
     if(millis()-time_state_change >= 1000){
         // Adding in a bias to right motor
         forward(3*PI, 3*PI*1.05);
+        forward_controller = 1;
+        // Removing IMU reset to allow correction to occur in the turn. idk maybe we keep
+        imu.reset_integrators();
+        time_state_change = millis();
+        state = state_after_pause;
+        if (DEBUG_GENERAL) {Serial.println("Entering NEXT STAGE AFTER PAUSE");}
+    }
+}
+void pause_forward_2PI() {
+    if(millis()-time_state_change >= 1000){
+        // Adding in a bias to right motor
+        forward(2*PI, 2*PI*1.05);
         forward_controller = 1;
         // Removing IMU reset to allow correction to occur in the turn. idk maybe we keep
         imu.reset_integrators();
