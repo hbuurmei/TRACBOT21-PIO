@@ -5,6 +5,8 @@
 
 #define DO_ONLY_ORIENT 0        // 0 for real run - Never leave orient phase, used for beacon testing
 
+#define SPACEBALLS 1
+
 // DEBUG FLAGS - ALL ZERO FOR REAL RUNS
 #define DEBUG_GENERAL 0         // Enable for serial output and general debug flags
 #define DEBUG_ORIENTING 0       // Enable to output IR beacon data in orientation phase
@@ -58,6 +60,7 @@ void turning_to_shooting_zone();
 void driving_to_shooting_zone();
 void turning_swivel();
 void dropping_balls();
+void launch_balls();
 void celebrating();
 
 void test_state_init();
@@ -259,6 +262,8 @@ void orienting(){
         }
         else{
             // to implement: 120 deg turn
+            res = find_beacon_relative(1);
+            return;
         }
     }
     // Continue if we haven't finished a full sweep
@@ -298,7 +303,7 @@ End State: The robot is stopped, aligned with the middle of the gap.
 void aligning_with_gap() {
     // Once 1000ms elapses, turn to face the gap.
     
-    if (millis() - time_state_change > 1600) {
+    if (millis() - time_state_change > 1300) {
         stop();
         forward_controller = 0;
         // imu.reset_integrators();
@@ -437,7 +442,7 @@ Robot has hit the contact zone.
 Drive backwards for .35 seconds, then transition. 
 */
 void retreating_from_contact_zone(){
-    if(millis() > time_state_change + 350){ //reduced from 500 ms to 350 ms
+    if(millis() > time_state_change + 250){ 
         stop();
         // imu.reset_integrators();
         switch (course) {
@@ -462,7 +467,7 @@ Robot has retreated from contact zone.
 Turn 90deg to face the shooting zone, then transition.
 */
 void turning_to_shooting_zone() {
-    bool turn_complete = execute_turn(course == A ? -95 * PI/180 : 95* PI/180);
+    bool turn_complete = execute_turn(course == A ? -94 * PI/180 : 94* PI/180);
 
     if (turn_complete) {
         stop();
@@ -490,8 +495,10 @@ void driving_to_shooting_zone() {
     if (millis() - time_state_change > 4000) {
         stop();
         forward_controller = 0;
-        state = turning_swivel; 
+        
         time_state_change = millis();
+
+        state = (SPACEBALLS ? launch_balls : turning_swivel);
     }
 }
 
@@ -529,6 +536,19 @@ Swivel is above the shooting zone. Drop balls and transition to celebrating
 void dropping_balls() { 
     servos.openHatch();
     delay(5000);
+    state = celebrating;
+}
+
+/*
+SPACEBALLS
+*/
+#define LAUNCH_TIME 200
+void launch_balls(){
+    servos.setSwivelAngle(course == A ? SWIVEL_LEFT-30 : SWIVEL_RIGHT+30);
+    delay(LAUNCH_TIME);
+    servos.openHatch();
+
+    delay(2000);
     state = celebrating;
 }
 
@@ -719,14 +739,15 @@ Currently assumes beacon is within field of view of robot.
 auto find_beacon_relative(bool rst) -> result{
     static int servo_angle_deg = 0; // current angle of servo
     static int angle_target = 0; // estimated servo angle to target
+
     static float angle_target_body = 0; // angle to target in body frame
+    static int maximum_convolution = 0; 
+    static int maximum_ir_reading = 0;
 
-    static int max_ir_reading = 0;
-
-    #define LEN_CONV 15
-    static int conv_weights[LEN_CONV] = {-10, -10, 1, 2, 2, 6, 6, 10, 6, 6, 2, 2, 1, -10, -10};
+    #define LEN_CONV 5
+    // static int conv_weights[LEN_CONV] = {-10, -10, 1, 2, 2, 6, 6, 6, 6, 6, 2, 2, 1, -10, -10};
     // static int conv_weights[LEN_CONV] = {0, 0, 1, 2, 2, 6, 6, 6, 6, 6, 2, 2, 1, 0, 0};
-    // static int conv_weights[LEN_CONV] = {5,5,5,5,5};
+    static int conv_weights[LEN_CONV] = {5,5,5,5,5};
     static int last_angles[LEN_CONV];
     static int ir_readings[LEN_CONV];
 
@@ -759,9 +780,10 @@ auto find_beacon_relative(bool rst) -> result{
             this_sum += ir_readings[0] * conv_weights[0];
             this_sum /= LEN_CONV;
 
-            if (this_sum > max_ir_reading){
-                max_ir_reading = this_sum;
+            if (this_sum > maximum_convolution){
+                maximum_convolution = this_sum;
                 angle_target = last_angles[LEN_CONV/2]; // take middle of conv.
+                maximum_ir_reading = ir_readings[LEN_CONV/2];
                 angle_target_body = (float(map(angle_target, 0, 180, -90, 90)) * PI/180);
             }
             if (DEBUG_ORIENTING){
@@ -776,7 +798,12 @@ auto find_beacon_relative(bool rst) -> result{
             }
         }
     } else{
-        return result{1, 1, angle_target_body};
+        if (maximum_ir_reading > 70 && maximum_convolution > 250){
+            return result{1, 1, angle_target_body};
+        }
+        else{
+            return result{1, 0, 0};
+        }
     }
     return result{0, 0, 0};
 }
@@ -820,7 +847,7 @@ void do_nothing(){
 
 void test_state_init(){
     imu.reset_integrators();
-    state = test_turns;
+    state = launch_balls;
     Serial.println("TEST START");
 }
 
