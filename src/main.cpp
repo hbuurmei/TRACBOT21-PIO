@@ -174,9 +174,10 @@ void start() {
         // state = pause;
         // state_after_pause = driving_to_box;
         //don't think we need pause anymore
-        state = driving_to_box;
+        state = pause_forward;
+        state_after_pause = driving_to_box;
         Serial.println("entering DRIVING_TO_BOX");
-        forward();
+        // forward();
         time_state_change = millis();
         forward_controller = 1;
     }
@@ -240,7 +241,7 @@ void driving_to_box() {
 
     */
     //FLAG test if this fixes the starting forward issue
-    forward();
+    // forward(); // Not necessary, see line 202
     imu.reset_integrators();
 
     // If any IR sensor crosses a line (since the last state change), transition state. 
@@ -249,8 +250,8 @@ void driving_to_box() {
         if (DEBUG_GENERAL) {Serial.println("Entering aligning_with_gap");}
         time_state_change = millis();
         // Note we continue moving forward() here- this will begin a timer.
-        forward();
-        imu.reset_integrators();
+        // forward(); // Not necessary, see 257
+        imu.reset_integrators(); // Maybe not necessary
         forward_controller = 1;
     }
 }
@@ -278,7 +279,11 @@ Once the robot has turned 90degrees, robot stops and transitions to driving_thro
 */
 void turning_to_gap() {
     // Execute a 90deg turn, direction depending on course
-    bool turn_complete = execute_turn(course == A ? -PI/2: PI/2);
+    if (DEBUG_GENERAL) {
+        Serial.print("AngZ: ");
+        Serial.println(imu.angZ);
+    }
+    bool turn_complete = execute_turn(course == A ? -PI/2: PI/2); // Probably do something simpler
 
     // When turn finishes, transition state.
     if (turn_complete) {
@@ -305,25 +310,29 @@ Once line crossed, transition to turning_to_contact_zone.
 void driving_through_gap() {
     // Do nothing until 3s elapsed
     if (millis() - time_state_change >= 3000){ //FLAG this value needs tuning
-        if(ir_left_triggers || ir_mid_triggers || ir_right_triggers){
-
-            if (DEBUG_GENERAL) {Serial.print("left: ");
+        Serial.println("ir sensors should be triggering");
+        if (DEBUG_GENERAL) {Serial.print("left: ");
                 Serial.println(ir_left_triggers);
                 Serial.print("middle: ");
                 Serial.println(ir_mid_triggers);
                 Serial.print("right ");
                 Serial.println(ir_right_triggers);
-            }
-            stop();
+        }
+        if(ir_left_triggers || ir_mid_triggers || ir_right_triggers){
+            Serial.println("line sensors active");
             forward_controller = 0;
+            stop();
             imu.reset_integrators();
-            state = turning_to_contact_zone;
+            
+            state_after_pause = turning_to_contact_zone;
             switch (course) {
             case B:
-                turn_right(MIDDLE);
+                // turn_right(MIDDLE);
+                state = pause_right;
                 break;
             case A:
-                turn_left(MIDDLE);
+                // turn_left(MIDDLE);
+                state = pause_left;
                 break;
             }
             if (DEBUG_GENERAL) {Serial.println("Entering turning_to_contact_zone");}
@@ -341,14 +350,18 @@ Robot has reached the line leading to the contact zone.
 It then executes a 90deg turn, direction depending on course, before transitioning.
 */
 void turning_to_contact_zone() {
-    bool turn_complete = execute_turn(course==A ? PI/2 : -PI/2);
+    if (DEBUG_GENERAL) {
+        Serial.print("AngZ: ");
+        Serial.println(imu.angZ);
+    }
+    bool turn_complete = execute_turn(course==A ? PI/2 : -PI/2); // Quite problematic
 
     if (turn_complete) { 
         stop();
         imu.reset_integrators();
-
+        state = pause_forward;
         state_after_pause = driving_to_contact_zone;
-        forward();
+        // forward();
         time_state_change = millis();
         forward_controller = 1;
         // state = pause_forward;
@@ -384,14 +397,16 @@ void retreating_from_contact_zone(){
         imu.reset_integrators();
         switch (course) {
             case B:
-                turn_left(MIDDLE);
+                // turn_left(MIDDLE);
+                state = pause_left;
                 break;
             case A:
-                turn_right(MIDDLE);
+                // turn_right(MIDDLE);
+                state = pause_right;
                 break;
         }
         imu.reset_integrators();
-        state = turning_to_shooting_zone;
+        state_after_pause = turning_to_shooting_zone;
         time_state_change = millis();
         if (DEBUG_GENERAL) {Serial.println("Entering turning_to_shooting_zone");}
     }
@@ -407,8 +422,9 @@ void turning_to_shooting_zone() {
     if (turn_complete) {
         stop();
         imu.reset_integrators();
-        state = driving_to_shooting_zone;
-        forward();
+        state = pause_forward;
+        state_after_pause =  driving_to_shooting_zone;
+        // forward();
         time_state_change = millis();
         imu.reset_integrators();
         forward_controller = 1;
@@ -538,16 +554,16 @@ void controller() {
     imu.update_integrator();  // IMU integrator
     update_ir_states();       //black tape ir sensors
     // // 
-    if(forward_controller){
-        dw = -(kp*imu.gyroZ + ki*imu.angZ)*BASE_HALF_WIDTH/WHEEL_RADIUS;
-        // wr_cmd = max(DEFAULT_MOTOR_SPEED + dw, MIN_MOTOR_SPEED);
-        // wl_cmd = max(DEFAULT_MOTOR_SPEED - dw, MIN_MOTOR_SPEED);
-        wr_cmd = DEFAULT_MOTOR_SPEED + dw;
-        wl_cmd = DEFAULT_MOTOR_SPEED - dw;
-        analogWrite(EnA, wr_cmd * RPS_TO_ANALOG);
-        analogWrite(EnB, wl_cmd * RPS_TO_ANALOG);
-        //if needed, implement floor (reach min speed, fix it by turning one way til good)
-    }
+    // if(forward_controller){
+    //     dw = -(kp*imu.gyroZ + ki*imu.angZ)*BASE_HALF_WIDTH/WHEEL_RADIUS;
+    //     // wr_cmd = max(DEFAULT_MOTOR_SPEED + dw, MIN_MOTOR_SPEED);
+    //     // wl_cmd = max(DEFAULT_MOTOR_SPEED - dw, MIN_MOTOR_SPEED);
+    //     wr_cmd = DEFAULT_MOTOR_SPEED + dw;
+    //     wl_cmd = DEFAULT_MOTOR_SPEED - dw;
+    //     analogWrite(EnA, wr_cmd * RPS_TO_ANALOG);
+    //     analogWrite(EnB, wl_cmd * RPS_TO_ANALOG);
+    //     //if needed, implement floor (reach min speed, fix it by turning one way til good)
+    // }
 }
 
 /*
