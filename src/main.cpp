@@ -1,31 +1,22 @@
+// CONFIGURATION
+#define DO_CELEBRATE 0          // 1 for real run - Toggle celebration behaviors 
+#define DO_ORIENT 1             // 1 for real run - Toggle initial IR beacon orientation
+#define DO_TEST 0               // 0 for real run - Toggle a test state
 
-// CONFIGURATION -- ALL SHOULD BE 1 FOR REAL RUNS
-#define DO_CELEBRATE 0  // 1 for real run
-#define DO_ORIENT 1     // 1 for real run
-#define DO_TEST 0       // 0 for real run
+// DEBUG FLAGS - ALL ZERO FOR REAL RUNS
+#define DEBUG_GENERAL 0         // Enable for serial output and general debug flags
+#define DEBUG_ORIENTING 0       // Enable to output IR beacon data in orientation phase
+#define DEBUG_EXECUTE_TURN 0    // Enable to output kinematic data in execute_turn
+#define DEBUG_DRIVING_TO_BOX 0  // 
 
-#define DEBUG_GENERAL 0
-#define DEBUG_ORIENTING 0
-#define DEBUG_EXECUTE_TURN 0
-#define DEBUG_DRIVING_TO_BOX 0
-#define turn_testing  0
-#define use_turn_pauses 0
-
+// COURSE SELECTION
 enum course_config {
     B,  // B --> 0
     A   // A --> 1
 };
 course_config course = B;
 
-enum direction_config {
-    R,  // right
-    L   // left
-};
-direction_config direction = R;
-
-
-#define swivel_interval 2    //2 degree turn intervals for now
-
+// INCLUDE LIBRARIES
 #define USE_TIMER_1     true
 
 #include <Arduino.h>
@@ -36,11 +27,20 @@ direction_config direction = R;
 #include <button/button.cpp>
 #include <sensors/ir_beacon.cpp>
 
+// TUNING FLAGS
+#define BEACON_OFFSET 66*PI/180     // Angle between beacon and desired starting position
+#define SERVO_SWEEP 180             // Maximum sweep angle for swivel when searching for beacon
+#define SWIVEL_INTERVAL 2           // Swivel angle increment when searching for beacon
+
+#define CONTROLLER_INTERVAL 1000/CONTROLLER_SAMPLES_PER_SEC // Interval at which to call controller, ms.
+
+
+// DEFINE SENSOR & ACTUATOR CLASSES
 IMU imu;
 IR_Beacon ir;
 ServoDriver servos;
 
-// State functions
+// DECLARE STATE FUNCTIONS
 void waiting_for_button();
 void start();
 void orienting();
@@ -68,29 +68,18 @@ void idle();
 void test_turns();
 void do_nothing();
 
-// Initialize state
+// INITIALIZE STATE
 void (*state) (void) = start;  // usually we would use waiting_for_button
 void (*state_after_pause) (void) = start; // next state to use after a pause
 
-// Control functions
+// INITIALIZE CONTROL FUNCTIONS
 void controller();
 bool execute_turn(float target, float speed = DEFAULT_MOTOR_SPEED, float tolerance = 2 * PI/180);//PI/64); //FLAG: changed speed from 1.7 to 2*PI //flag here
-
 struct result {bool done_sweep; bool found_target; float angle_target_body;};
 auto find_beacon_relative(bool rst = 0) -> result;
+static volatile bool forward_controller = 0; 
 
-static volatile bool forward_controller = 0; //idea: set to 1 whenever trying to drive straight, 0 otherwise, logic in controller
-
-unsigned long controller_interval = 1000/CONTROLLER_SAMPLES_PER_SEC; // 1000 ms/s / samples/s = ms/sample
-
-// Dictates behavior of the controller function.
-enum control_state{
-    CONTROL_OFF,
-    CONTROL_FORWARD,
-    CONTROL_TURN
-};
-control_state controller_mode = CONTROL_OFF;
-
+// Variable to keep track of the time since the last state change
 unsigned long time_state_change = 0;
 
 /*
@@ -116,18 +105,21 @@ void setup() {
     imu.initialize();
     imu.calibrate();
 
+    // Start controller timer
     ITimer1.init();
-    ITimer1.setInterval(controller_interval, controller);
+    ITimer1.setInterval(CONTROLLER_INTERVAL, controller);
 }
 
 /*
 Main Loop Code
 */
 void loop() {
+    // Update IMU measurements
     imu.update_measurement();
-    ir.update();              //beacon IR
+    // Update IR beacon measurements
+    ir.update();
+    // Execute state function
     state();
-    //try next run to see if it (somehow) helps avoid missed triggers
 }
 
 /*
@@ -151,7 +143,7 @@ void waiting_for_button() { // button for course selection
 
 /*
 start()
-Execute initial celebration. Wave the hatch servo. 
+Execute initial celebration. 
 Transition to: orienting
 */
 void start() {
@@ -170,17 +162,8 @@ void start() {
     imu.reset_integrators();
     if (DO_TEST){
         state = test_state_init;
-        //state = turning_swivel;
         time_state_change = millis();
         if (DEBUG_GENERAL) {Serial.println("entering TEST");}
-    }
-    else if (turn_testing){
-        state = test_turns;
-        turn_right(MIDDLE);
-        direction = R;
-        Serial.println("should turn right");
-        time_state_change = millis();
-        Serial.println("entering test_turns");
     }
     else if (DO_ORIENT){
         state = orienting;
@@ -197,26 +180,29 @@ void start() {
         time_state_change = millis();
         forward_controller = 1;
     }
-    
 }
 
 /*
 Orient the robot with the line trace exiting the starting box.
 End State: The robot is moving forward() towards the edge of the box
 */
-#define BEACON_OFFSET 66*PI/180
-
 void orienting(){
     /*
     - sweep 180 degrees with servo, measure maximum value & angle 
     - if value not higher than some threshold (100 ?), turn 120 and repeat
     - else, turn to angle of beacon, offset by value based on course A or course B
     */
+    // res stores the result of find_beacon_relative()
     static result res;
+    // Check if we've completed a full sweep (initializes zero)
     if (res.done_sweep){
+        // Check if we've found a target (currently always 1)
         if (res.found_target){
+            // Set the swivel to the middle position
             servos.setSwivelAngle(SWIVEL_MIDDLE);
+            // Execute turn to the position of the beacon, plus a fixed beacon offset
             bool turn_complete = execute_turn(res.angle_target_body + (course == A ? BEACON_OFFSET : -BEACON_OFFSET));
+            // Once this turn is complete, stop and transition state
             if (turn_complete){
                 stop();
                 imu.reset_integrators();
@@ -228,12 +214,13 @@ void orienting(){
             }
         }
         else{
-            // implement 120 deg turn, continue orienting 
+            // to implement: 120 deg turn
         }
     }
+    // Continue if we haven't finished a full sweep
     else{
         res = find_beacon_relative();
-    } //end else
+    } 
 }
 
 /*
@@ -247,14 +234,21 @@ void driving_to_box() {
         Serial.print(ir_mid_triggers);
         Serial.println(ir_right_triggers);
     }
+    /*
+    
+        TODO: This behavior resets the ki portion of the forward controller, but not the kp - may lead to unexpected behavior.
+
+    */
     //FLAG test if this fixes the starting forward issue
     forward();
     imu.reset_integrators();
 
+    // If any IR sensor crosses a line (since the last state change), transition state. 
     if (ir_left_triggers || ir_right_triggers || ir_mid_triggers){
         state = aligning_with_gap;
         if (DEBUG_GENERAL) {Serial.println("Entering aligning_with_gap");}
         time_state_change = millis();
+        // Note we continue moving forward() here- this will begin a timer.
         forward();
         imu.reset_integrators();
         forward_controller = 1;
@@ -267,21 +261,13 @@ When 1000ms elapses, the robot should stop and transition to turning_to_gap.
 End State: The robot is stopped, aligned with the middle of the gap.
 */
 void aligning_with_gap() {
+    // Once 1000ms elapses, turn to face the gap.
     if (millis() - time_state_change > 1000) {
         stop();
         forward_controller = 0;
         imu.reset_integrators();
         state = turning_to_gap;
         time_state_change = millis();
-        
-        // switch (course) {
-        // case B:
-        //     turn_left(MIDDLE);
-        //     break;
-        // case A:
-        //     turn_right(MIDDLE);
-        //     break;
-        // }
         if (DEBUG_GENERAL) {Serial.println("Entering turning_to_gap");}
     }
 }
@@ -291,8 +277,10 @@ Robot is turning towards the gap.
 Once the robot has turned 90degrees, robot stops and transitions to driving_through_gap.
 */
 void turning_to_gap() {
+    // Execute a 90deg turn, direction depending on course
     bool turn_complete = execute_turn(course == A ? -PI/2: PI/2);
 
+    // When turn finishes, transition state.
     if (turn_complete) {
         stop();
         imu.reset_integrators();
@@ -308,16 +296,16 @@ void turning_to_gap() {
 
 /*
 Robot is driving through the gap.
-Robot will not pay attention to any lines until 3.5s have elapsed. Once 3.5s have elapsed, begin looking 
-for lines. Once line crossed, transition to turning_to_contact_zone.
+The robot here drives straight, ignoring any lines on the ground until a fixed time has elapsed. 
+It then stops once any line is detected. The fixed time *should* allow it to travel through the gap 
+and into the open part of the field before stopping on the line leading to the contact zone. 
+
+Once line crossed, transition to turning_to_contact_zone.
 */
 void driving_through_gap() {
     // Do nothing until 3s elapsed
-
     if (millis() - time_state_change >= 3000){ //FLAG this value needs tuning
-        Serial.println("ir sensors should be triggering");
         if(ir_left_triggers || ir_mid_triggers || ir_right_triggers){
-            Serial.println("line sensors active");
 
             if (DEBUG_GENERAL) {Serial.print("left: ");
                 Serial.println(ir_left_triggers);
@@ -349,7 +337,8 @@ void driving_through_gap() {
 }
 
 /*
-Turn towards contact zone
+Robot has reached the line leading to the contact zone.
+It then executes a 90deg turn, direction depending on course, before transitioning.
 */
 void turning_to_contact_zone() {
     bool turn_complete = execute_turn(course==A ? PI/2 : -PI/2);
@@ -370,7 +359,8 @@ void turning_to_contact_zone() {
 }
 
 /*
-
+Robot is facing the contact zone.
+Drive forward for two seconds, then transition. 
 */
 void driving_to_contact_zone() {  
     if(millis() > time_state_change + 2000){ 
@@ -385,7 +375,8 @@ void driving_to_contact_zone() {
 }
 
 /*
-
+Robot has hit the contact zone.
+Drive backwards for .35 seconds, then transition. 
 */
 void retreating_from_contact_zone(){
     if(millis() > time_state_change + 350){ //reduced from 500 ms to 350 ms
@@ -406,6 +397,10 @@ void retreating_from_contact_zone(){
     }
 }
 
+/*
+Robot has retreated from contact zone. 
+Turn 90deg to face the shooting zone, then transition.
+*/
 void turning_to_shooting_zone() {
     bool turn_complete = execute_turn(course == A ? -PI/2 : PI/2);
 
@@ -421,7 +416,14 @@ void turning_to_shooting_zone() {
     }
 }
 
-//ENDPOINT FOR NOW, UNTIL SERVOS BACK UP
+/*
+Robot is facing the shooting zone.
+Drive forwards for 3s along the wall, then transition to turn swivel and release balls.
+*/
+
+/*
+    TODO: Need to fix the following behavior. 
+*/
 void driving_to_shooting_zone() {
     if (millis() - time_state_change > 3000) {
         stop();
@@ -432,6 +434,10 @@ void driving_to_shooting_zone() {
         time_state_change = millis();
     }
 }
+
+/*
+    TODO: Will require a backwards controller to make this work properly 
+*/
 //state to reverse and hit contact zone after shooting in case we missed it. Move to after shooting when fully integrating
 void reversing_to_contact_zone(){
     if (millis() - time_state_change >= 5000){
@@ -439,6 +445,9 @@ void reversing_to_contact_zone(){
     }
 }
 
+/*
+Robot is adjacent to the shooting zone. Turn the swivel to face the shooting zone. 
+*/
 void turning_swivel() {
     switch (course) {
         case B:
@@ -454,12 +463,18 @@ void turning_swivel() {
     }
 }
 
+/*
+Swivel is above the shooting zone. Drop balls and transition to celebrating
+*/
 void dropping_balls() { 
     servos.openHatch();
-    delay(2000);
+    delay(5000);
     state = celebrating;
 }
 
+/*
+We're done. Celebrate. 
+*/
 void celebrating() {   
     servos.openHatch();
     delay(1000);
@@ -507,13 +522,17 @@ void pause_left(){
     }
 }
 
+
+/*
+Forward Controller.
+An control routine, executed on a hardware timer, that adjusts motor speed to maintain straight travel. 
+*/
 volatile float dw;
 volatile int wr_cmd;
 volatile int wl_cmd;
 volatile float kp = 5.;
 volatile float ki = 3.;
 // float sign(float x) {x >= 0 ? 1. : -1.;}
-
 void controller() {    
     // //Update sensors
     imu.update_integrator();  // IMU integrator
@@ -531,9 +550,12 @@ void controller() {
     }
 }
 
-// #define TURN_ADJUSTMENT_FACTOR 1.57
+/*
+Turning.
+Routine to execute a turn. Ensures the robot is stationary and is within correct tolerance for 
+N_CONSECUTIVE_COMPLETES cycles before indicating that the turn is complete. 
+*/
 #define N_CONSECUTIVE_COMPLETES 5
-#define TURN_ADJUSTMENT_FACTOR 1
 bool execute_turn(float raw_target, float speed, float tolerance){
     static bool last_states[N_CONSECUTIVE_COMPLETES];
     static float last_raw_target;
@@ -543,7 +565,7 @@ bool execute_turn(float raw_target, float speed, float tolerance){
         rst = 1;
     }
     last_raw_target = raw_target;
-    float target = raw_target; 
+    float target = raw_target;  // Note we used to scale the target angle here to fix errors from ISR timer. Now should not need to.
 
     float error = abs(imu.angZ - target); 
     bool turn_complete = error < tolerance;
@@ -588,7 +610,10 @@ bool execute_turn(float raw_target, float speed, float tolerance){
     return sum == N_CONSECUTIVE_COMPLETES;
 }
 
-#define SERVO_SWEEP 180
+/*
+Routine to find the angle of he beacon relative to the robot. 
+Currently assumes beacon is within field of view of robot.
+*/
 auto find_beacon_relative(bool rst) -> result{
     static int servo_angle_deg = 0; // current angle of servo
     static int angle_target = 0; // estimated servo angle to target
@@ -619,7 +644,7 @@ auto find_beacon_relative(bool rst) -> result{
         if (millis()>last_servo_move+250){
             last_servo_move = millis();
             servos.setSwivelAngle(servo_angle_deg);
-            servo_angle_deg += swivel_interval;
+            servo_angle_deg += SWIVEL_INTERVAL;
             
             int this_sum = 0;
             for (int ii=LEN_CONV-1; ii>0; ii--){
@@ -654,15 +679,23 @@ auto find_beacon_relative(bool rst) -> result{
     return result{0, 0, 0};
 }
 
-
+/*
+Idle state. Unused.
+*/
 void idle(){
-    Serial.print(">imuZ:");
-    Serial.println(imu.angZ);
+
 }
 
 /*
-TEST FUNCTIONS
+TEST FUNCTIONS & STATES
 */
+
+
+enum direction_config {
+    R,  // right
+    L   // left
+};
+direction_config direction = R;
 void test_turns(){
     // bool turn_complete = execute_turn(course == A ? -PI/2: PI/2);
     bool turn_complete = execute_turn(direction == R ? -PI/2 : PI/2);
