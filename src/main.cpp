@@ -94,6 +94,10 @@ void setup() {
         Serial.print(millis());
         Serial.println(" START");
     }
+    
+    // Delay to ensure IMU can calibrate properly without vibrations from switch throw
+    delay(1000);
+
     // Configure Servos, set to defaults
     servos.initialize();
     if (DEBUG_GENERAL){
@@ -185,9 +189,8 @@ void start() {
         servos.setSwivelAngle(SWIVEL_MIDDLE);
         delay(1000);
     }
-    
-    // Reset integrator and move to orientation phase.
     imu.reset_integrators();
+    // Reset integrator and move to orientation phase.
     if (DO_TEST){
         state = test_state_init;
         time_state_change = millis();
@@ -338,7 +341,7 @@ Once line crossed, transition to turning_to_contact_zone.
 */
 void driving_through_gap() {
     // Do nothing until 3s elapsed
-    if (millis() - time_state_change >= 3000){ //FLAG this value needs tuning
+    if (millis() - time_state_change >= 2000){ //FLAG this value needs tuning
         Serial.println("ir sensors should be triggering");
         if (DEBUG_GENERAL) {Serial.print("left: ");
                 Serial.println(ir_left_triggers);
@@ -538,8 +541,8 @@ FLOW CONTROL AND MOTION FUNCTIONS
 
 void pause_forward(){
     if(millis()-time_state_change >= 1000){
-        //forward(3*PI, 3*PI);
-        forward();
+        // Adding in a bias to right motor
+        forward(3*PI, 3*PI*1.05);
         forward_controller = 1;
         // Removing IMU reset to allow correction to occur in the turn.
         // imu.reset_integrators();
