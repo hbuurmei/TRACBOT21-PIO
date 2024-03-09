@@ -7,7 +7,7 @@
 
 // DEBUG FLAGS - ALL ZERO FOR REAL RUNS
 #define DEBUG_GENERAL 1         // Enable for serial output and general debug flags
-#define DEBUG_ORIENTING 1       // Enable to output IR beacon data in orientation phase
+#define DEBUG_ORIENTING 0       // Enable to output IR beacon data in orientation phase
 #define DEBUG_EXECUTE_TURN 0    // Enable to output kinematic data in execute_turn
 #define DEBUG_DRIVING_TO_BOX 0  // 
 
@@ -208,8 +208,10 @@ void start() {
         // state_after_pause = driving_to_box;
         //don't think we need pause anymore
         state = pause_forward;
-        state_after_pause = driving_to_box;
-        Serial.println("entering DRIVING_TO_BOX");
+        // state_after_pause = driving_to_box;
+        state_after_pause = aligning_with_gap;
+
+        Serial.println("entering aligning_with_gap");
         // forward();
         time_state_change = millis();
         forward_controller = 1;
@@ -247,7 +249,7 @@ void orienting(){
             if (turn_complete){
                 stop();
                 imu.reset_integrators();
-                state_after_pause = driving_to_box;
+                state_after_pause = aligning_with_gap;
                 state = pause_forward;
                 time_state_change = millis();
                 if (DEBUG_GENERAL) {Serial.println("Entering driving to box");}
@@ -284,7 +286,7 @@ void driving_to_box() {
         // Note we continue moving forward() here- this will begin a timer.
         // forward(); // Not necessary, see 257
         // imu.reset_integrators(); // Maybe not necessary
-        // forward_controller = 1;
+        
     }
 }
 /*
@@ -294,6 +296,7 @@ End State: The robot is stopped, aligned with the middle of the gap.
 */
 void aligning_with_gap() {
     // Once 1000ms elapses, turn to face the gap.
+    
     if (millis() - time_state_change > 1000) {
         stop();
         forward_controller = 0;
@@ -323,7 +326,7 @@ void turning_to_gap() {
     //     Serial.print("AngZ: ");
     //     Serial.println(imu.angZ);
     // }
-    bool turn_complete = execute_turn(course == A ? - 60*PI/180: 60*PI/180);
+    bool turn_complete = execute_turn(course == A ? - 60*PI/180: 60*PI/180,2*PI);
 
     // When turn finishes, transition state.
     if (turn_complete) {
@@ -334,7 +337,7 @@ void turning_to_gap() {
         // state = driving_through_gap;
         // forward();
         time_state_change = millis();
-        // forward_controller = 1;
+        forward_controller = 1;
         if (DEBUG_GENERAL) {Serial.println("Entering driving_through_gap");}
     }
 }
@@ -552,8 +555,8 @@ void pause_forward(){
         // Adding in a bias to right motor
         forward(3*PI, 3*PI*1.05);
         forward_controller = 1;
-        // Removing IMU reset to allow correction to occur in the turn.
-        // imu.reset_integrators();
+        // Removing IMU reset to allow correction to occur in the turn. idk maybe we keep
+        imu.reset_integrators();
         time_state_change = millis();
         state = state_after_pause;
         if (DEBUG_GENERAL) {Serial.println("Entering NEXT STAGE AFTER PAUSE");}
@@ -572,7 +575,7 @@ void pause_right(){
     if(millis()-time_state_change >= 1000){
         forward_controller = 0;
         turn_right(MIDDLE);
-        imu.reset_integrators();
+        // imu.reset_integrators();
         time_state_change = millis();
         state = state_after_pause;
         if (DEBUG_GENERAL) {Serial.println("Entering NEXT STAGE AFTER PAUSE");}
@@ -582,7 +585,7 @@ void pause_left(){
     if(millis()-time_state_change >= 1000){
         forward_controller = 0;
         turn_left(MIDDLE);
-        imu.reset_integrators();
+        // imu.reset_integrators();
         time_state_change = millis();
         state = state_after_pause;
         if (DEBUG_GENERAL) {Serial.println("Entering NEXT STAGE AFTER PAUSE");}
@@ -597,11 +600,12 @@ An control routine, executed on a hardware timer, that adjusts motor speed to ma
 volatile float dw;
 volatile int wr_cmd;
 volatile int wl_cmd;
-volatile float kp = 5.;
-volatile float ki = 3.;
+volatile float kp = 1.;
+volatile float ki = 0.5;
 // float sign(float x) {x >= 0 ? 1. : -1.;}
 void controller() {    
     // //Update sensors
+    // imu.update_measurement();
     imu.update_integrator();  // IMU integrator
     update_ir_states();       //black tape ir sensors
     // // 
