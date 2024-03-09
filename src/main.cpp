@@ -1,6 +1,6 @@
 // CONFIGURATION
 #define DO_CELEBRATE 0          // 1 for real run - Toggle celebration behaviors 
-#define DO_ORIENT 0             // 1 for real run - Toggle initial IR beacon orientation
+#define DO_ORIENT 1             // 1 for real run - Toggle initial IR beacon orientation
 #define DO_TEST 0               // 0 for real run - Toggle a test state
 
 #define DO_ONLY_ORIENT 0        // 0 for real run - Never leave orient phase, used for beacon testing
@@ -16,7 +16,7 @@ enum course_config {
     B,  // B --> 0
     A   // A --> 1
 };
-course_config course = B;
+course_config course = A;
 
 // INCLUDE LIBRARIES
 #define USE_TIMER_1     true
@@ -30,7 +30,7 @@ course_config course = B;
 #include <sensors/ir_beacon.cpp>
 
 // TUNING FLAGS
-#define BEACON_OFFSET 66*PI/180     // Angle between beacon and desired starting position
+#define BEACON_OFFSET 33*PI/180     // Angle between beacon and desired starting position
 #define SERVO_SWEEP 180             // Maximum sweep angle for swivel when searching for beacon
 #define SWIVEL_INTERVAL 2           // Swivel angle increment when searching for beacon
 
