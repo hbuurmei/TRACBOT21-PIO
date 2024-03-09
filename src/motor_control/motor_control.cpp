@@ -11,7 +11,7 @@
 #include <sensors/ir_line.cpp>  //flag - for line follow attempt
 // #include <motor_control/motor_control.h>
 #define MAX_MOTOR_SPEED 10.472 // Scaling Factor, "measured" speed at full duty cycle rad/s
-#define MIN_MOTOR_SPEED 1.8*PI // Measured reliable minimum speed rad/s
+#define MIN_MOTOR_SPEED 2.0*PI // Measured reliable minimum speed rad/s
 
 #define DEFAULT_MOTOR_SPEED 0.5*(MAX_MOTOR_SPEED+MIN_MOTOR_SPEED) // rad/s   //upped from 2.5*PI for testing to avoid stalls
 

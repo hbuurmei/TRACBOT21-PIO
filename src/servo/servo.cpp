@@ -26,7 +26,9 @@
 class ServoDriver{
     public:
         void initialize(){
-            pwm = Adafruit_PWMServoDriver();
+            tw = TwoWire();
+            tw.setWireTimeout(25000U, true);
+            pwm = Adafruit_PWMServoDriver(0x40, tw);
             pwm.begin();
             pwm.setOscillatorFrequency(27000000);
             pwm.setPWMFreq(SERVO_FREQ);  // Analog servos run at ~50 Hz updates
@@ -50,6 +52,7 @@ class ServoDriver{
         }
 
     private:
+        TwoWire tw;
         Adafruit_PWMServoDriver pwm;
 
         uint16_t deg_to_pwm(long degrees){
