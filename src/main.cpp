@@ -1,12 +1,14 @@
 // CONFIGURATION
 #define DO_CELEBRATE 0          // 1 for real run - Toggle celebration behaviors 
-#define DO_ORIENT 0             // 1 for real run - Toggle initial IR beacon orientation
+#define DO_ORIENT 1             // 1 for real run - Toggle initial IR beacon orientation
 #define DO_TEST 0               // 0 for real run - Toggle a test state
+
+#define DO_ONLY_ORIENT 1        // 0 for real run - Never leave orient phase, used for beacon testing
 
 // DEBUG FLAGS - ALL ZERO FOR REAL RUNS
 #define DEBUG_GENERAL 1         // Enable for serial output and general debug flags
-#define DEBUG_ORIENTING 0       // Enable to output IR beacon data in orientation phase
-#define DEBUG_EXECUTE_TURN 1    // Enable to output kinematic data in execute_turn
+#define DEBUG_ORIENTING 1       // Enable to output IR beacon data in orientation phase
+#define DEBUG_EXECUTE_TURN 0    // Enable to output kinematic data in execute_turn
 #define DEBUG_DRIVING_TO_BOX 0  // 
 
 // COURSE SELECTION
@@ -228,6 +230,12 @@ void orienting(){
     static result res;
     // Check if we've completed a full sweep (initializes zero)
     if (res.done_sweep){
+        
+        // DEBUG statement to test orientation code
+        if (DO_ONLY_ORIENT){
+            res = find_beacon_relative(1);
+            return;
+        }
 
         // Check if we've found a target (currently always 1)
         if (res.found_target){
