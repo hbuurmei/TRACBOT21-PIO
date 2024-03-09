@@ -37,8 +37,8 @@ course_config course = A;
 #define SERVO_SWEEP 180             // Maximum sweep angle for swivel when searching for beacon
 #define SWIVEL_INTERVAL 1           // Swivel angle increment when searching for beacon
 #define SWIVEL_MIN_IR   70
-#define SWIVEL_MIN_CONV 250
-#define IR_BEACON_MAX_VAL 400
+#define SWIVEL_MIN_CONV 175
+#define IR_BEACON_MAX_VAL 225
 
 #define CONTROLLER_INTERVAL 1000/CONTROLLER_SAMPLES_PER_SEC // Interval at which to call controller, ms.
 
@@ -307,7 +307,7 @@ End State: The robot is stopped, aligned with the middle of the gap.
 void aligning_with_gap() {
     // Once 1000ms elapses, turn to face the gap.
     
-    if (millis() - time_state_change > 1300) {
+    if (millis() - time_state_change > 1500) {
         stop();
         forward_controller = 0;
         // imu.reset_integrators();
@@ -336,7 +336,7 @@ void turning_to_gap() {
     //     Serial.print("AngZ: ");
     //     Serial.println(imu.angZ);
     // }
-    bool turn_complete = execute_turn(course == A ? - 60*PI/180: 60*PI/180);
+    bool turn_complete = execute_turn(course == A ? - 65*PI/180: 65*PI/180);
 
     // When turn finishes, transition state.
     if (turn_complete) {
@@ -788,8 +788,9 @@ auto find_beacon_relative(bool rst) -> result{
                 last_angles[ii] = last_angles[ii-1];
                 this_sum += ir_readings[ii] * conv_weights[ii];
             }
-            ir_readings[0] = ir.value;
-            ir_readings[0] = min(ir_readings[0], IR_BEACON_MAX_VAL);
+            int this_reading = ir.value;
+            this_reading = (this_reading > IR_BEACON_MAX_VAL ? 0 : this_reading);
+            ir_readings[0] = this_reading;
 
             last_angles[0] = servo_angle_deg;
             this_sum += ir_readings[0] * conv_weights[0];
@@ -805,7 +806,7 @@ auto find_beacon_relative(bool rst) -> result{
                 Serial.print(">ServoAngle: ");
                 Serial.println(servo_angle_deg);
                 Serial.print(">IRReading: ");
-                Serial.println(ir.value);
+                Serial.println(this_reading);
                 Serial.print(">ConvValue: ");
                 Serial.println(this_sum);
                 Serial.print(">TargetAngle: ");
@@ -817,7 +818,7 @@ auto find_beacon_relative(bool rst) -> result{
             }
         }
     } else{
-        if (maximum_ir_reading > SWIVEL_MIN_IR && maximum_convolution > SWIVEL_MIN_CONV){
+        if (maximum_convolution > SWIVEL_MIN_CONV){
             return result{1, 1, angle_target_body};
         }
         else{
